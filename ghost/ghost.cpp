@@ -67,6 +67,14 @@ namespace MPQ{
  #include <mach/mach_time.h>
 #endif
 
+
+#ifdef WIN32
+	typedef HANDLE MPQH;
+#else
+	typedef MPQ::HANDLE MPQH;
+#endif
+
+
 string gCFGFile;
 string gLogFile;
 uint32_t gLogMethod;
@@ -1314,12 +1322,12 @@ void CGHost :: ExtractScripts( )
 }
 
 void CGHost :: ExtractScriptsPre130( string PatchMPQFileName){
-    HANDLE PatchMPQ;
+    MPQH PatchMPQ;
 
     if( MPQ::SFileOpenArchive( PatchMPQFileName.c_str(), 0, MPQ_OPEN_FORCE_MPQ_V1, &PatchMPQ ) )
     {
         CONSOLE_Print( "[GHOST] loading MPQ file [" + PatchMPQFileName + "]" );
-        HANDLE SubFile;
+        MPQH SubFile;
 
         // common.j
 
