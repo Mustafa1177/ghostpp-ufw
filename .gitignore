@@ -1,0 +1,19 @@
+*.o
+*.so
+ghost++
+ghost.cfg
+ghost/ghost++
+ghost.log
+ghost.dbs
+ghost/Debug/*
+ghost/Debug MySQL/*
+ghost/Release/*
+ghost/Release MySQL/*
+.vs
+bncsutil/vc8_build/Debug/*
+bncsutil/vc8_build/Release/*
+bncsutil/Debug/*
+Debug/*
+Debug MySQL/*
+Release/*
+Release MySQL/*
