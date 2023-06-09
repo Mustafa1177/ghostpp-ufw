@@ -35,6 +35,7 @@
 #include "replay.h"
 #include "gameprotocol.h"
 #include "game_base.h"
+#include "gameplayer.h"
 
 #include <boost/filesystem.hpp>
 
@@ -2045,6 +2046,65 @@ void CBNET :: BotCommand( string Message, string User, bool Whisper, bool ForceR
 				QueueChatCommand( "WARDEN STATUS --- " + UTIL_ToString( m_BNLSClient->GetTotalWardenIn( ) ) + " requests received, " + UTIL_ToString( m_BNLSClient->GetTotalWardenOut( ) ) + " responses sent.", User, Whisper );
 			else
 				QueueChatCommand( "WARDEN STATUS --- Not connected to BNLS server.", User, Whisper );
+		}
+
+		//
+		// !LOBBIES
+		//
+
+		if (Command == "lobbies")
+		{
+			string reply;
+
+			if (m_GHost->m_CurrentGame)
+			{
+				reply = "[" + m_GHost->m_CurrentGame->GetGameName() + " : " + m_GHost->m_CurrentGame->GetOwnerName() + "] ";
+				BYTEARRAY IDs = m_GHost->m_CurrentGame->GetPIDs();
+
+				if (IDs.size() > 0)
+				{
+					for (BYTEARRAY::iterator i = IDs.begin(); i != IDs.end(); i++)
+					{
+						CGamePlayer* plyr = m_GHost->m_CurrentGame->GetPlayerFromPID(*i);
+						reply += plyr->GetName() + " ";
+					}
+				}
+				else
+					reply += "This lobby is empty.";
+			}
+			else
+			{
+				reply = "There are no open lobbies.";
+			}
+			QueueChatCommand(reply, User, Whisper);
+		}
+
+		//
+		// !GAMES
+		//
+
+		else if (Command == "games") 
+		{
+			if (m_GHost->m_Games.size() > 0)
+			{
+				for (vector<CBaseGame*> ::iterator i = m_GHost->m_Games.begin(); i != m_GHost->m_Games.end(); i++)
+				{
+					string reply = "[" + (*i)->GetGameName() + "] ";
+					BYTEARRAY IDs = (*i)->GetPIDs();
+
+					for (BYTEARRAY::iterator i2 = IDs.begin(); i2 != IDs.end(); i2++)
+					{
+						CGamePlayer* plyr = (*i)->GetPlayerFromPID(*i2);
+						reply += plyr->GetName() + " ";
+					}
+
+					QueueChatCommand(reply, User, Whisper);
+				}
+			}
+			else
+			{
+				QueueChatCommand("There are no ongoing games.", User, Whisper);
+			}
 		}
 	}
 	else
