@@ -18,3 +18,5 @@ Debug MySQL/*
 Release/*
 Release MySQL/*
 /maps
+*.obj
+/ghost/ghost.tlog
