@@ -51,9 +51,6 @@
     <ClCompile Include="game_base.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="gameplayer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="gameprotocol.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -111,6 +108,9 @@
     <ClCompile Include="util.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="gameplayer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bncsutilinterface.h">
@@ -147,9 +147,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="game_base.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="gameplayer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="gameprotocol.h">
@@ -219,6 +216,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="gameplayer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

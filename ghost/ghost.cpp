@@ -469,7 +469,7 @@ CGHost :: CGHost( CConfig *CFG )
 	m_AutoHostAutoStartPlayers = CFG->GetInt( "autohost_startplayers", 0 );
 	m_AutoHostGameName = CFG->GetString( "autohost_gamename", string( ) );
 	m_AutoHostOwner = CFG->GetString( "autohost_owner", string( ) );
-	m_LastAutoHostTime = GetTime( );
+	m_LastAutoHostTime = GetTime( ) - 27;
 	m_AutoHostMatchMaking = false;
 	m_AutoHostMinimumScore = 0.0;
 	m_AutoHostMaximumScore = 0.0;
@@ -727,6 +727,7 @@ bool CGHost :: Update( long usecBlock )
 	boost::mutex::scoped_lock gamesLock( m_GamesMutex );
 	
 	// get rid of any deleted games
+	/*
 	for( vector<CBaseGame *> :: iterator i = m_Games.begin( ); i != m_Games.end( ); )
 	{
 		if( (*i)->readyDelete( ) )
@@ -734,6 +735,23 @@ bool CGHost :: Update( long usecBlock )
 			delete *i;
 			m_Games.erase( i );
 		} else {
+			++i;
+		}
+	}
+	*/
+	for (vector<CBaseGame*> ::iterator i = m_Games.begin(); i != m_Games.end(); )
+	{
+		if ((*i)->readyDelete())
+		{
+			delete* i;
+			i = m_Games.erase(i);
+		/*	if (i != m_Games.begin())
+			{
+				i = std::prev(i);
+				continue;
+			}*/
+		}
+		else {
 			++i;
 		}
 	}

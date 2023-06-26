@@ -42,6 +42,7 @@ class CCallableGamePlayerSummaryCheck;
 class CCallableDotAGameAdd;
 class CCallableDotAPlayerAdd;
 class CCallableDotAPlayerSummaryCheck;
+class CCallableDotAPlayerSummaryCheckNew;	//New
 class CCallableDownloadAdd;
 class CCallableScoreCheck;
 class CCallableW3MMDPlayerAdd;
@@ -51,6 +52,8 @@ class CDBGame;
 class CDBGamePlayer;
 class CDBGamePlayerSummary;
 class CDBDotAPlayerSummary;
+class CDBDotAPlayerSummaryNew;				//New
+class CCallableDotAPlayerAddNew;			//New
 
 typedef pair<uint32_t,string> VarP;
 
@@ -59,6 +62,7 @@ class CGHostDB
 protected:
 	bool m_HasError;
 	string m_Error;
+	//uint32_t m_ScoreMinGames;
 
 public:
 	CGHostDB( CConfig *CFG );
@@ -67,6 +71,8 @@ public:
 	bool HasError( )			{ return m_HasError; }
 	string GetError( )			{ return m_Error; }
 	virtual string GetStatus( )	{ return "DB STATUS --- OK"; }
+	//New
+	//virtual uint32_t GetMinGames() { return m_ScoreMinGames; }
 
 	virtual void RecoverCallable( CBaseCallable *callable );
 
@@ -127,6 +133,9 @@ public:
 	virtual CCallableW3MMDVarAdd *ThreadedW3MMDVarAdd( uint32_t gameid, map<VarP,int32_t> var_ints );
 	virtual CCallableW3MMDVarAdd *ThreadedW3MMDVarAdd( uint32_t gameid, map<VarP,double> var_reals );
 	virtual CCallableW3MMDVarAdd *ThreadedW3MMDVarAdd( uint32_t gameid, map<VarP,string> var_strings );
+	//new
+	virtual CCallableDotAPlayerAddNew* ThreadedDotAPlayerAddNew(uint32_t gameid, uint32_t colour, uint32_t kills, uint32_t deaths, uint32_t creepkills, uint32_t creepdenies, uint32_t assists, uint32_t gold, uint32_t neutralkills, string item1, string item2, string item3, string item4, string item5, string item6, string hero, uint32_t newcolour, uint32_t towerkills, uint32_t raxkills, uint32_t courierkills);
+	virtual CCallableDotAPlayerSummaryCheckNew* ThreadedDotAPlayerSummaryCheckNew(string servername, string name, string mingames, string gamestate);
 };
 
 //
@@ -468,6 +477,29 @@ public:
 	virtual string GetName( )								{ return m_Name; }
 	virtual CDBDotAPlayerSummary *GetResult( )				{ return m_Result; }
 	virtual void SetResult( CDBDotAPlayerSummary *nResult )	{ m_Result = nResult; }
+};
+
+class CCallableDotAPlayerSummaryCheckNew : virtual public CBaseCallable
+{
+protected:
+	string m_Server;
+	string m_Name;
+	//string m_Formula;
+	string m_MinGames;
+	string m_GameState;
+	CDBDotAPlayerSummaryNew* m_Result;
+
+public:
+	CCallableDotAPlayerSummaryCheckNew(string nServer, string nName, string nMinGames, string nGameState) : CBaseCallable(), m_Server(nServer), m_Name(nName), m_MinGames(nMinGames), m_GameState(nGameState), m_Result(NULL) { }
+	virtual ~CCallableDotAPlayerSummaryCheckNew();
+
+	virtual string GetName() { return m_Name; }
+	virtual string GetServerName() { return m_Server; } //New
+	//virtual string GetFormula( )							{ return m_Formula; }
+	virtual string GetMinGames() { return m_MinGames; }
+	virtual string GetGameState() { return m_GameState; }
+	virtual CDBDotAPlayerSummaryNew* GetResult() { return m_Result; }
+	virtual void SetResult(CDBDotAPlayerSummaryNew* nResult) { m_Result = nResult; }
 };
 
 class CCallableDownloadAdd : virtual public CBaseCallable
@@ -833,5 +865,189 @@ public:
 	float GetAvgRaxKills( )				{ return m_TotalGames > 0 ? (float)m_TotalRaxKills / m_TotalGames : 0; }
 	float GetAvgCourierKills( )			{ return m_TotalGames > 0 ? (float)m_TotalCourierKills / m_TotalGames : 0; }
 };
+
+//
+// CDBDotAPlayerSummaryNew
+//
+
+class CDBDotAPlayerSummaryNew
+{
+private:
+	string m_Server;
+	string m_Name;
+	uint32_t m_TotalGames;			// total number of dota games played
+	uint32_t m_TotalWins;			// total number of dota games won
+	uint32_t m_TotalLosses;			// total number of dota games lost
+	uint32_t m_TotalKills;			// total number of hero kills
+	uint32_t m_TotalDeaths;			// total number of deaths
+	uint32_t m_TotalCreepKills;		// total number of creep kills
+	uint32_t m_TotalCreepDenies;	// total number of creep denies
+	uint32_t m_TotalAssists;		// total number of assists
+	uint32_t m_TotalNeutralKills;	// total number of neutral kills
+	uint32_t m_TotalTowerKills;     // total number of tower kills
+	uint32_t m_TotalRaxKills;       // total number of rax kills
+	uint32_t m_TotalCourierKills;   // total number of courier kills
+	uint32_t m_TotalLeaves;			// New
+	uint32_t m_TotalPlayedMinutes;	// New
+	uint32_t m_Rating;				// New
+	uint32_t m_RatingPeak;			// New
+	double m_WinsPerGame;
+	double m_LossesPerGame;
+	double m_KillsPerGame;
+	double m_DeathsPerGame;
+	double m_CreepKillsPerGame;
+	double m_CreepDeniesPerGame;
+	double m_AssistsPerGame;
+	double m_NeutralKillsPerGame;
+	double m_TowerKillsPerGame;
+	double m_RaxKillsPerGame;
+	double m_CourierKillsPerGame;
+	double m_Score;					// calculated score
+	uint32_t m_Rank;
+	double m_LeavesPerGame;			// New
+
+public:
+	CDBDotAPlayerSummaryNew(string nServer, string nName, uint32_t nTotalGames, uint32_t nTotalWins, uint32_t nTotalLosses, uint32_t nTotalKills, uint32_t nTotalDeaths, uint32_t nTotalCreepKills, uint32_t nTotalCreepDenies, uint32_t nTotalAssists, uint32_t nTotalNeutralKills, uint32_t nTotalTowerKills, uint32_t nTotalRaxKills, uint32_t nTotalCourierKills,
+		double nWinsPerGame, double nLossesPerGame,
+		double nKillsPerGame, double nDeathsPerGame, double nCreepKillsPerGame, double nCreepDeniesPerGame,
+		double nAssistsPerGame, double nNeutralKillsPerGame, double nScore, double nTowerKillsPerGame, double nRaxKillsPerGame, double nCourierKillsPerGame, uint32_t nRank,
+		uint32_t nTotalLeaves, uint32_t nTotalPlayedMinutes, uint32_t nRating, uint32_t nRatingPeak);
+	~CDBDotAPlayerSummaryNew();
+
+	string GetServer() { return m_Server; }
+	string GetName() { return m_Name; }
+	uint32_t GetTotalGames() { return m_TotalGames; }
+	uint32_t GetTotalWins() { return m_TotalWins; }
+	uint32_t GetTotalLosses() { return m_TotalLosses; }
+	uint32_t GetTotalKills() { return m_TotalKills; }
+	uint32_t GetTotalDeaths() { return m_TotalDeaths; }
+	uint32_t GetTotalCreepKills() { return m_TotalCreepKills; }
+	uint32_t GetTotalCreepDenies() { return m_TotalCreepDenies; }
+	uint32_t GetTotalAssists() { return m_TotalAssists; }
+	uint32_t GetTotalNeutralKills() { return m_TotalNeutralKills; }
+	uint32_t GetTotalTowerKills() { return m_TotalTowerKills; }
+	uint32_t GetTotalRaxKills() { return m_TotalRaxKills; }
+	uint32_t GetTotalCourierKills() { return m_TotalCourierKills; }
+	double GetWinsPerGame() { return m_WinsPerGame; }
+	double GetLossesPerGame() { return m_LossesPerGame; }
+	double GetKillsPerGame() { return m_KillsPerGame; }
+	double GetDeathsPerGame() { return m_DeathsPerGame; }
+	double GetCreepKillsPerGame() { return m_CreepKillsPerGame; }
+	double GetCreepDeniesPerGame() { return m_CreepDeniesPerGame; }
+	double GetAssistsPerGame() { return m_AssistsPerGame; }
+	double GetNeutralKillsPerGame() { return m_NeutralKillsPerGame; }
+	double GetTowerKillsPerGame() { return m_TowerKillsPerGame; }
+	double GetRaxKillsPerGame() { return m_RaxKillsPerGame; }
+	double GetCourierKillsPerGame() { return m_CourierKillsPerGame; }
+	double GetScore() { return m_Score; }
+	uint32_t GetRank() { return m_Rank; }
+	float GetAvgKills() { return m_TotalGames > 0 ? (float)m_TotalKills / m_TotalGames : 0; }
+	float GetAvgDeaths() { return m_TotalGames > 0 ? (float)m_TotalDeaths / m_TotalGames : 0; }
+	float GetAvgCreepKills() { return m_TotalGames > 0 ? (float)m_TotalCreepKills / m_TotalGames : 0; }
+	float GetAvgCreepDenies() { return m_TotalGames > 0 ? (float)m_TotalCreepDenies / m_TotalGames : 0; }
+	float GetAvgAssists() { return m_TotalGames > 0 ? (float)m_TotalAssists / m_TotalGames : 0; }
+	float GetAvgNeutralKills() { return m_TotalGames > 0 ? (float)m_TotalNeutralKills / m_TotalGames : 0; }
+	float GetAvgTowerKills() { return m_TotalGames > 0 ? (float)m_TotalTowerKills / m_TotalGames : 0; }
+	float GetAvgRaxKills() { return m_TotalGames > 0 ? (float)m_TotalRaxKills / m_TotalGames : 0; }
+	float GetAvgCourierKills() { return m_TotalGames > 0 ? (float)m_TotalCourierKills / m_TotalGames : 0; }
+	uint32_t GetRating() { return m_Rating; }
+	float GetLeavePercent() { return m_TotalWins + m_TotalLosses > 0 ? (float)m_TotalLeaves / (m_TotalWins + m_TotalLosses) : -1; }		//New
+};
+
+
+
+
+
+
+
+
+
+
+
+//==============================================================================================================================//
+//												    New stuff (By Mustafa)														//
+//==============================================================================================================================//
+
+//ready       CCallableDotAPlayerAddNew !!!!!!!!!!!!!!!!! get it back
+/*
+class CCallableDotAPlayerAddNew : virtual public CBaseCallable
+{
+protected:
+	string m_Server;
+	string m_Name;
+	uint32_t m_TotalGames;			// total number of dota games played
+	uint32_t m_TotalWins;			// total number of dota games won
+	uint32_t m_TotalLosses;			// total number of dota games lost
+	uint32_t m_TotalKills;			// total number of hero kills
+	uint32_t m_TotalDeaths;			// total number of deaths
+	uint32_t m_TotalCreepKills;		// total number of creep kills
+	uint32_t m_TotalCreepDenies;	// total number of creep denies
+	uint32_t m_TotalAssists;		// total number of assists
+	uint32_t m_TotalNeutralKills;	// total number of neutral kills
+	uint32_t m_TotalTowerKills;     // total number of tower kills
+	uint32_t m_TotalRaxKills;       // total number of rax kills
+	uint32_t m_TotalCourierKills;   // total number of courier kills
+	uint32_t m_TotalLeaves;
+	uint32_t m_TotalPlayedMinutes;
+	uint32_t m_Rating;
+	uint32_t m_RatingPeak;
+	uint32_t m_Result;
+
+public:
+	CCallableDotAPlayerAddNew( string nServer, string nName, uint32_t nTotalGames, uint32_t nTotalWins, uint32_t nTotalLosses, uint32_t nTotalKills, uint32_t nTotalDeaths, uint32_t nTotalCreepKills, uint32_t nTotalCreepDenies, uint32_t nTotalAssists, uint32_t nTotalNeutralKills, uint32_t nTotalTowerKills, uint32_t nTotalRaxKills, uint32_t nTotalCourierKills, uint32_t nTotalLeaves, uint32_t nTotalPlayedMinutes, uint32_t nRating, uint32_t nRatingPeak) : CBaseCallable( ),
+		m_Server( nServer ), m_Name( nName ), m_TotalGames( nTotalGames ), m_TotalWins( nTotalWins ), m_TotalLosses( nTotalLosses ),
+		m_TotalKills( nTotalKills ), m_TotalDeaths( nTotalDeaths ), m_TotalCreepKills( nTotalCreepKills ), m_TotalCreepDenies( nTotalCreepDenies ), m_TotalAssists( nTotalAssists ),
+		m_TotalNeutralKills( nTotalNeutralKills ), m_TotalTowerKills( nTotalTowerKills ), m_TotalRaxKills( nTotalRaxKills ), m_TotalCourierKills( nTotalCourierKills ), m_TotalLeaves( nTotalLeaves ), m_TotalPlayedMinutes( nTotalPlayedMinutes ), m_Rating( nRating ), m_RatingPeak( nRatingPeak ), m_Result( 0 ) { }
+	virtual ~CCallableDotAPlayerAddNew( );
+
+	virtual uint32_t GetResult( )				{ return m_Result; }
+	virtual void SetResult( uint32_t nResult )	{ m_Result = nResult; }
+};
+*/
+
+class CCallableDotAPlayerAddNew : virtual public CBaseCallable
+{
+protected:
+	uint32_t m_GameID;
+	uint32_t m_Colour;
+	uint32_t m_Kills;
+	uint32_t m_Deaths;
+	uint32_t m_CreepKills;
+	uint32_t m_CreepDenies;
+	uint32_t m_Assists;
+	uint32_t m_Gold;
+	uint32_t m_NeutralKills;
+	string m_Item1;
+	string m_Item2;
+	string m_Item3;
+	string m_Item4;
+	string m_Item5;
+	string m_Item6;
+	string m_Hero;
+	uint32_t m_NewColour;
+	uint32_t m_TowerKills;
+	uint32_t m_RaxKills;
+	uint32_t m_CourierKills;
+	uint32_t m_Result;
+
+public:
+	CCallableDotAPlayerAddNew(uint32_t nGameID, uint32_t nColour, uint32_t nKills, uint32_t nDeaths, uint32_t nCreepKills, uint32_t nCreepDenies, uint32_t nAssists, uint32_t nGold, uint32_t nNeutralKills, string nItem1, string nItem2, string nItem3, string nItem4, string nItem5, string nItem6, string nHero, uint32_t nNewColour, uint32_t nTowerKills, uint32_t nRaxKills, uint32_t nCourierKills) : CBaseCallable(), m_GameID(nGameID), m_Colour(nColour), m_Kills(nKills), m_Deaths(nDeaths), m_CreepKills(nCreepKills), m_CreepDenies(nCreepDenies), m_Assists(nAssists), m_Gold(nGold), m_NeutralKills(nNeutralKills), m_Item1(nItem1), m_Item2(nItem2), m_Item3(nItem3), m_Item4(nItem4), m_Item5(nItem5), m_Item6(nItem6), m_Hero(nHero), m_NewColour(nNewColour), m_TowerKills(nTowerKills), m_RaxKills(nRaxKills), m_CourierKills(nCourierKills), m_Result(0) { }
+	virtual ~CCallableDotAPlayerAddNew();
+
+	virtual uint32_t GetResult() { return m_Result; }
+	virtual void SetResult(uint32_t nResult) { m_Result = nResult; }
+};
+
+
+
+
+//---------------------------------------------------------------------------------------------//
+
+
+
+//===========================================================================================
+
+
+
 
 #endif

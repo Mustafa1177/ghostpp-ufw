@@ -8,5 +8,6 @@
     <LocalDebuggerWorkingDirectory>$(SolutionDir)</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerCommand>$(SolutionDir)$(TargetFileName)</LocalDebuggerCommand>
+    <LocalDebuggerCommandArguments>ghost_dota690a.cfg</LocalDebuggerCommandArguments>
   </PropertyGroup>
 </Project>

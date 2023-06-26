@@ -128,12 +128,30 @@ protected:
 	bool m_LocalAdminMessages;						// if local admin messages should be relayed or not
 	int m_DoDelete;									// notifies thread to exit
 	uint32_t m_LastReconnectHandleTime;				// last time we tried to handle GProxy reconnects
+	//New
+	uint32_t m_GameLoadedTime;						// GetTime when the game was loaded
+	bool m_GameEnded;
+	uint32_t m_GameEndedTime;
+	bool m_AutoBanState;
+	bool m_IsLadderGame;
 
 public:
 	vector<string> m_DoSayGames;					// vector of strings we should announce to the current game
 	boost::mutex m_SayGamesMutex;					// mutex for the above vector
 	vector<QueuedSpoofAdd> m_DoSpoofAdd;			// vector of spoof add function call structures
 	boost::mutex m_SpoofAddMutex;
+	vector<string> m_AutoBanTemp;
+	//New
+	uint32_t m_GetMapNumPlayers;
+	uint32_t m_GetMapNumTeams;
+	uint32_t m_Team1;							// Players in team 1
+	uint32_t m_Team2;							// Players in team 2
+	uint32_t m_Team3;							// Players in team 3
+	uint32_t m_Team4;							// Players in team 4
+	uint32_t m_TeamDiff;						// Difference between teams (in players number)
+	bool m_BanOn;									// If we ban the player or not
+	uint32_t m_PlayersLeft;							// Number of players that have left.
+	bool m_EvenPlayeredTeams;						// If the the teams are even playered or not
 
 public:
 	CBaseGame( CGHost *nGHost, CMap *nMap, CSaveGame *nSaveGame, uint16_t nHostPort, unsigned char nGameState, string nGameName, string nOwnerName, string nCreatorName, string nCreatorServer );
@@ -163,6 +181,8 @@ public:
 	virtual bool GetGameLoading( )					{ return m_GameLoading; }
 	virtual bool GetGameLoaded( )					{ return m_GameLoaded; }
 	virtual bool GetLagging( )						{ return m_Lagging; }
+	//New
+	virtual uint32_t GetGameLoadedTime()			{ return m_GameLoadedTime; }
 
 	virtual void SetEnforceSlots( vector<CGameSlot> nEnforceSlots )		{ m_EnforceSlots = nEnforceSlots; }
 	virtual void SetEnforcePlayers( vector<PIDPlayer> nEnforcePlayers )	{ m_EnforcePlayers = nEnforcePlayers; }
@@ -282,6 +302,9 @@ public:
 	virtual void DeleteVirtualHost( );
 	virtual void CreateFakePlayer( );
 	virtual void DeleteFakePlayer( );
+	virtual bool IsAutoBanned(string name);
+	virtual void ReCalculateTeams();
+
 };
 
 struct QueuedSpoofAdd {

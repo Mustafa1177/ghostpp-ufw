@@ -147,7 +147,14 @@ public:
 	uint32_t m_MapGameType;					// config value: the MapGameType overwrite (aka: refresh hack)
 	vector<GProxyReconnector *> m_PendingReconnects;
 	boost::mutex m_ReconnectMutex;
-
+	bool m_AutoBan;							// if we have auto ban on by default or not	
+	uint32_t m_AutoBanTeamDiffMax;			// if we have more then x number of players more then other team
+	uint32_t m_AutoBanTimer;				// time in mins the auto ban will stay on in game.
+	bool m_AutoBanAll;						// ban even if it does not make game uneven
+	uint32_t m_AutoBanFirstXLeavers;		// bans the first x leavers reguardless of even or not.
+	uint32_t m_AutoBanGameLoading;			// Ban if leave during loading
+	uint32_t m_AutoBanCountDown;			// Ban if leave during game start countdown.
+	uint32_t m_AutoBanGameEndMins;			// Ban if not left around x mins of game end time.
 	CGHost( CConfig *CFG );
 	~CGHost( );
 

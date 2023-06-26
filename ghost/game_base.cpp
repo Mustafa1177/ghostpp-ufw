@@ -48,6 +48,12 @@ CBaseGame :: CBaseGame( CGHost *nGHost, CMap *nMap, CSaveGame *nSaveGame, uint16
 	m_Socket = new CTCPServer( );
 	m_Protocol = new CGameProtocol( m_GHost );
 	m_Map = new CMap( *nMap );
+	m_EvenPlayeredTeams = false;
+	m_GameEnded = false;	
+	m_GameLoadedTime = 0;
+	m_PlayersLeft = 0;
+	m_IsLadderGame = m_Map->GetMapType( ) == "dota" ? true : false;
+	m_AutoBanState = m_GHost->m_AutoBan;
 
 	if( m_GHost->m_SaveReplays && !m_SaveGame )
 		m_Replay = new CReplay( );	
@@ -143,6 +149,9 @@ CBaseGame :: CBaseGame( CGHost *nGHost, CMap *nMap, CSaveGame *nSaveGame, uint16
 		CONSOLE_Print( "[GAME: " + m_GameName + "] error listening on port " + UTIL_ToString( m_HostPort ) );
 		m_Exiting = true;
 	}
+
+	m_GetMapNumPlayers = m_Map->GetMapNumPlayers();
+	m_GetMapNumTeams = m_Map->GetMapNumTeams();
 }
 
 CBaseGame :: ~CBaseGame( )
@@ -449,7 +458,7 @@ bool CBaseGame :: Update( void *fd, void *send_fd )
 	// changed this to ping during game loading as well to hopefully fix some problems with people disconnecting during loading
 	// changed this to ping during the game as well
 
-	if( GetTime( ) - m_LastPingTime >= 5 )
+	if( GetTime( ) - m_LastPingTime >= 1 )
 	{
 		// note: we must send pings to players who are downloading the map because Warcraft III disconnects from the lobby if it doesn't receive a ping every ~90 seconds
 		// so if the player takes longer than 90 seconds to download the map they would be disconnected unless we keep sending pings
@@ -1547,6 +1556,8 @@ void CBaseGame :: EventPlayerDeleted( CGamePlayer *player )
 	if( player->GetLeftMessageSent( ) )
 		return;
 
+	ReCalculateTeams();
+
 	if( m_GameLoaded )
 		SendAllChat( player->GetName( ) + " " + player->GetLeftReason( ) + "." );
 
@@ -1817,7 +1828,7 @@ void CBaseGame :: EventPlayerJoined( CPotentialPlayer *potential, CIncomingJoinP
 	{
 		for( vector<CBNET *> :: iterator i = m_GHost->m_BNETs.begin( ); i != m_GHost->m_BNETs.end( ); ++i )
 		{
-			if( (*i)->GetServer( ) == JoinedRealm )
+			if( (*i)->GetServer( ) == JoinedRealm || true )
 			{
 				CDBBan *Ban = (*i)->IsBannedName( joinPlayer->GetName( ) );
 
@@ -2121,6 +2132,10 @@ void CBaseGame :: EventPlayerJoined( CPotentialPlayer *potential, CIncomingJoinP
 	BlankIP.push_back( 0 );
 	BlankIP.push_back( 0 );
 	BlankIP.push_back( 0 );
+
+	// recalculate nr of players in each team + difference in players nr.
+
+	ReCalculateTeams();
 
 	for( vector<CGamePlayer *> :: iterator i = m_Players.begin( ); i != m_Players.end( ); ++i )
 	{
@@ -2512,6 +2527,10 @@ void CBaseGame :: EventPlayerJoinedWithScore( CPotentialPlayer *potential, CInco
 	BlankIP.push_back( 0 );
 	BlankIP.push_back( 0 );
 
+	// recalculate nr of players in each team + difference in players nr.
+
+	ReCalculateTeams();
+
 	for( vector<CGamePlayer *> :: iterator i = m_Players.begin( ); i != m_Players.end( ); ++i )
 	{
 		if( !(*i)->GetLeftMessageSent( ) && *i != Player )
@@ -2719,6 +2738,8 @@ void CBaseGame :: EventPlayerLoaded( CGamePlayer *player )
 	}
 	else
 		SendAll( m_Protocol->SEND_W3GS_GAMELOADED_OTHERS( player->GetPID( ) ) );
+
+	ReCalculateTeams(); //wrong place?
 }
 
 bool CBaseGame :: EventPlayerAction( CGamePlayer *player, CIncomingAction *action )
@@ -3510,6 +3531,25 @@ void CBaseGame :: EventGameStarted( )
 void CBaseGame :: EventGameLoaded( )
 {
 	CONSOLE_Print( "[GAME: " + m_GameName + "] finished loading with " + UTIL_ToString( GetNumHumanPlayers( ) ) + " players" );
+	
+	m_GameLoadedTime = GetTime();
+	
+	// check if the teams have even number of players
+	if (m_GetMapNumTeams > 1)
+	{
+		uint32_t sTeam1 = 0;
+		uint32_t sTeam2 = 0;
+
+		for (unsigned char s = 0; s < m_Slots.size(); s++)
+		{
+			if (m_Slots[s].GetTeam() == 0)
+				sTeam1++;
+			if (m_Slots[s].GetTeam() == 1)
+				sTeam2++;
+		}
+		if (sTeam1 == sTeam2)
+			m_EvenPlayeredTeams = true;
+	}
 
 	// send shortest, longest, and personal load times to each player
 
@@ -4586,9 +4626,11 @@ void CBaseGame :: StartCountDownAuto( bool requireSpoofChecks )
 	{
 		// check if enough players are present
 
+		ReCalculateTeams();
+
 		if( GetNumHumanPlayers( ) < m_AutoStartPlayers )
 		{
-			SendAllChat( m_GHost->m_Language->WaitingForPlayersBeforeAutoStart( UTIL_ToString( m_AutoStartPlayers ), UTIL_ToString( m_AutoStartPlayers - GetNumHumanPlayers( ) ) ) );
+			//SendAllChat( m_GHost->m_Language->WaitingForPlayersBeforeAutoStart( UTIL_ToString( m_AutoStartPlayers ), UTIL_ToString( m_AutoStartPlayers - GetNumHumanPlayers( ) ) ) );
 			return;
 		}
 
@@ -4760,4 +4802,20 @@ void CBaseGame :: DeleteFakePlayer( )
 	SendAll( m_Protocol->SEND_W3GS_PLAYERLEAVE_OTHERS( m_FakePlayerPID, PLAYERLEAVE_LOBBY ) );
 	SendAllSlotInfo( );
 	m_FakePlayerPID = 255;
+}
+
+
+//==============================================================================================================================//
+//															 New stuff 															//
+//==============================================================================================================================//
+
+bool CBaseGame::IsAutoBanned(string name)
+{
+	for (vector<string> ::iterator i = m_AutoBanTemp.begin(); i != m_AutoBanTemp.end(); i++)
+	{
+		if (*i == name)
+			return true;
+	}
+
+	return false;
 }

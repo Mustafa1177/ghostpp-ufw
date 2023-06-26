@@ -22,6 +22,7 @@
 #include "util.h"
 #include "config.h"
 #include "ghostdb.h"
+//#include <boost/thread.hpp>  // delete this
 
 //
 // CGHostDB
@@ -29,7 +30,7 @@
 
 CGHostDB :: CGHostDB( CConfig *CFG ) : m_HasError( false )
 {
-
+	
 }
 
 CGHostDB :: ~CGHostDB( )
@@ -541,3 +542,172 @@ CDBDotAPlayerSummary :: ~CDBDotAPlayerSummary( )
 {
 
 }
+
+
+
+//==============================================================================================================================//
+//												    New stuff (By Mustafa)														//
+//==============================================================================================================================//
+
+/*
+CCallableDotAPlayerAdd :: ~CCallableDotAPlayerAdd( )
+{
+
+}
+
+CCallableDotAPlayerSummaryCheck :: ~CCallableDotAPlayerSummaryCheck( )
+{
+	delete m_Result;
+}
+
+
+////////
+
+
+CDBDotAPlayer :: CDBDotAPlayer( )
+{
+	m_ID = 0;
+	m_GameID = 0;
+	m_Colour = 0;
+	m_Kills = 0;
+	m_Deaths = 0;
+	m_CreepKills = 0;
+	m_CreepDenies = 0;
+	m_Assists = 0;
+	m_Gold = 0;
+	m_NeutralKills = 0;
+	m_NewColour = 0;
+	m_TowerKills = 0;
+	m_RaxKills = 0;
+	m_CourierKills = 0;
+}
+
+CDBDotAPlayer :: CDBDotAPlayer( uint32_t nID, uint32_t nGameID, uint32_t nColour, uint32_t nKills, uint32_t nDeaths, uint32_t nCreepKills, uint32_t nCreepDenies, uint32_t nAssists, uint32_t nGold, uint32_t nNeutralKills, string nItem1, string nItem2, string nItem3, string nItem4, string nItem5, string nItem6, string nHero, uint32_t nNewColour, uint32_t nTowerKills, uint32_t nRaxKills, uint32_t nCourierKills )
+{
+	m_ID = nID;
+	m_GameID = nGameID;
+	m_Colour = nColour;
+	m_Kills = nKills;
+	m_Deaths = nDeaths;
+	m_CreepKills = nCreepKills;
+	m_CreepDenies = nCreepDenies;
+	m_Assists = nAssists;
+	m_Gold = nGold;
+	m_NeutralKills = nNeutralKills;
+	m_Items[0] = nItem1;
+	m_Items[1] = nItem2;
+	m_Items[2] = nItem3;
+	m_Items[3] = nItem4;
+	m_Items[4] = nItem5;
+	m_Items[5] = nItem6;
+	m_Hero = nHero;
+	m_NewColour = nNewColour;
+	m_TowerKills = nTowerKills;
+	m_RaxKills = nRaxKills;
+	m_CourierKills = nCourierKills;
+}
+
+CDBDotAPlayer :: ~CDBDotAPlayer( )
+{
+
+}
+
+string CDBDotAPlayer :: GetItem( unsigned int i )
+{
+	if( i < 6 )
+		return m_Items[i];
+
+	return string( );
+}
+
+void CDBDotAPlayer :: SetItem( unsigned int i, string item )
+{
+	if( i < 6 )
+		m_Items[i] = item;
+}
+*/
+
+
+
+//
+// CDBDotAPlayerSummaryNew
+//
+
+CDBDotAPlayerSummaryNew::CDBDotAPlayerSummaryNew(string nServer, string nName, uint32_t nTotalGames, uint32_t nTotalWins, uint32_t nTotalLosses, uint32_t nTotalKills, uint32_t nTotalDeaths, uint32_t nTotalCreepKills, uint32_t nTotalCreepDenies, uint32_t nTotalAssists, uint32_t nTotalNeutralKills, uint32_t nTotalTowerKills, uint32_t nTotalRaxKills, uint32_t nTotalCourierKills,
+	double nWinsPerGame, double nLossesPerGame,
+	double nKillsPerGame, double nDeathsPerGame, double nCreepKillsPerGame, double nCreepDeniesPerGame,
+	double nAssistsPerGame, double nNeutralKillsPerGame, double nScore, double nTowerKillsPerGame, double nRaxKillsPerGame, double nCourierKillsPerGame, uint32_t nRank,
+	uint32_t nTotalLeaves, uint32_t nTotalPlayedMinutes, uint32_t nRating, uint32_t nRatingPeak)
+{
+	m_Server = nServer;
+	m_Name = nName;
+	m_TotalGames = nTotalGames;
+	m_TotalWins = nTotalWins;
+	m_TotalLosses = nTotalLosses;
+	m_TotalKills = nTotalKills;
+	m_TotalDeaths = nTotalDeaths;
+	m_TotalCreepKills = nTotalCreepKills;
+	m_TotalCreepDenies = nTotalCreepDenies;
+	m_TotalAssists = nTotalAssists;
+	m_TotalNeutralKills = nTotalNeutralKills;
+	m_WinsPerGame = nWinsPerGame;
+	m_LossesPerGame = nLossesPerGame;
+	m_KillsPerGame = nKillsPerGame;
+	m_DeathsPerGame = nDeathsPerGame;
+	m_CreepKillsPerGame = nCreepKillsPerGame;
+	m_CreepDeniesPerGame = nCreepDeniesPerGame;
+	m_AssistsPerGame = nAssistsPerGame;
+	m_NeutralKillsPerGame = nNeutralKillsPerGame;
+	m_Score = nScore;
+	m_TotalTowerKills = nTotalTowerKills;
+	m_TotalRaxKills = nTotalRaxKills;
+	m_TotalCourierKills = nTotalCourierKills;
+	m_TowerKillsPerGame = nTowerKillsPerGame;
+	m_RaxKillsPerGame = nRaxKillsPerGame;
+	m_CourierKillsPerGame = nCourierKillsPerGame;
+	m_Rank = nRank;
+	//Following is new
+	m_TotalLeaves = nTotalLeaves;
+	m_TotalPlayedMinutes = nTotalPlayedMinutes;
+	m_Rating = nRating;
+	m_RatingPeak = nRatingPeak;
+}
+
+
+
+//
+// CGHostDB
+//
+
+CCallableDotAPlayerAddNew* CGHostDB::ThreadedDotAPlayerAddNew(uint32_t gameid, uint32_t colour, uint32_t kills, uint32_t deaths, uint32_t creepkills, uint32_t creepdenies, uint32_t assists, uint32_t gold, uint32_t neutralkills, string item1, string item2, string item3, string item4, string item5, string item6, string hero, uint32_t newcolour, uint32_t towerkills, uint32_t raxkills, uint32_t courierkills)
+{
+	return NULL;
+}
+
+CCallableDotAPlayerSummaryCheckNew* CGHostDB::ThreadedDotAPlayerSummaryCheckNew(string servername, string name, string mingames, string gamestate)
+{
+	return NULL;
+}
+
+CDBDotAPlayerSummaryNew :: ~CDBDotAPlayerSummaryNew()
+{
+
+}
+
+CCallableDotAPlayerAddNew :: ~CCallableDotAPlayerAddNew()
+{
+
+}
+
+
+//
+// Callables
+//
+
+CCallableDotAPlayerSummaryCheckNew :: ~CCallableDotAPlayerSummaryCheckNew()
+{
+	delete m_Result;
+}
+
+
+

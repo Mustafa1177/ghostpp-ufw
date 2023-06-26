@@ -34,11 +34,13 @@ class CCallableBanAdd;
 class CCallableGameAdd;
 class CCallableGamePlayerSummaryCheck;
 class CCallableDotAPlayerSummaryCheck;
+class CCallableDotAPlayerSummaryCheckNew; //New
 
 typedef pair<string,CCallableBanCheck *> PairedBanCheck;
 typedef pair<string,CCallableBanAdd *> PairedBanAdd;
 typedef pair<string,CCallableGamePlayerSummaryCheck *> PairedGPSCheck;
 typedef pair<string,CCallableDotAPlayerSummaryCheck *> PairedDPSCheck;
+typedef pair<string, CCallableDotAPlayerSummaryCheckNew*> PairedDPSCheckNew; //New
 
 class CGame : public CBaseGame
 {
@@ -53,6 +55,7 @@ protected:
 	vector<PairedBanAdd> m_PairedBanAdds;		// vector of paired threaded database ban adds in progress
 	vector<PairedGPSCheck> m_PairedGPSChecks;	// vector of paired threaded database game player summary checks in progress
 	vector<PairedDPSCheck> m_PairedDPSChecks;	// vector of paired threaded database DotA player summary checks in progress
+	vector<PairedDPSCheckNew> m_PairedDPSChecksNew;// New
 
 public:
 	CGame( CGHost *nGHost, CMap *nMap, CSaveGame *nSaveGame, uint16_t nHostPort, unsigned char nGameState, string nGameName, string nOwnerName, string nCreatorName, string nCreatorServer );
@@ -60,6 +63,7 @@ public:
 
 	virtual bool Update( void *fd, void *send_fd );
 	virtual void EventPlayerDeleted( CGamePlayer *player );
+	virtual void EventPlayerLeft(CGamePlayer* player, uint32_t reason);
 	virtual bool EventPlayerAction( CGamePlayer *player, CIncomingAction *action );
 	virtual bool EventPlayerBotCommand( CGamePlayer *player, string command, string payload );
 	virtual void EventGameStarted( );

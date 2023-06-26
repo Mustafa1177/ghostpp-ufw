@@ -2,7 +2,7 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>F:\source\repos\ghostpp-ufw\Debug MySQL\ghost.exe</FullPath>
+      <FullPath>F:\source\repos\ghost_repos\ghostpp-ufw\Debug MySQL\ghost.exe</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles />
