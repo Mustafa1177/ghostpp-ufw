@@ -992,7 +992,14 @@ typedef struct sqlite3_mutex sqlite3_mutex;
 ** handled as a fatal error by SQLite, vfs implementations should endeavor
 ** to prevent this by setting mxPathname to a sufficiently large value.
 **
-** The xRandomness(), xSleep(), xCurrentTime(), and xCurrentTimeInt64()
+** The xRandomness(), x
+
+
+
+
+
+
+(), xCurrentTime(), and xCurrentTimeInt64()
 ** interfaces are not strictly a part of the filesystem, but they are
 ** included in the VFS structure for completeness.
 ** The xRandomness() function attempts to return nBytes bytes

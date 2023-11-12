@@ -287,6 +287,7 @@ public:
 	virtual void ShuffleSlots( );
 	virtual vector<unsigned char> BalanceSlotsRecursive( vector<unsigned char> PlayerIDs, unsigned char *TeamSizes, double *PlayerScores, unsigned char StartTeam );
 	virtual void BalanceSlots( );
+	virtual void BalanceSlotsNew( ); //New
 	virtual void AddToSpoofed( string server, string name, bool sendMessage );
 	virtual void AddToReserved( string name );
 	virtual bool IsOwner( string name );
@@ -303,6 +304,7 @@ public:
 	virtual void CreateFakePlayer( );
 	virtual void DeleteFakePlayer( );
 	virtual bool IsAutoBanned(string name);
+	virtual void TestDotaSubmit(CGHost* GHost, CGHostDB* DB, uint32_t GameID); ///////////////////////
 	virtual void ReCalculateTeams();
 
 };

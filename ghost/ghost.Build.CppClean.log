@@ -1,5 +1,6 @@
 f:\source\repos\ghost_repos\ghostpp-ufw\ghost\vc143.pdb
 f:\source\repos\ghost_repos\ghostpp-ufw\ghost\vc143.idb
+f:\source\repos\ghost_repos\ghostpp-ufw\ghost\gameprotocol.obj
 f:\source\repos\ghost_repos\ghostpp-ufw\ghost\gameslot.obj
 f:\source\repos\ghost_repos\ghostpp-ufw\ghost\game_admin.obj
 f:\source\repos\ghost_repos\ghostpp-ufw\ghost\game_base.obj
@@ -28,12 +29,12 @@ f:\source\repos\ghost_repos\ghostpp-ufw\ghost\commandpacket.obj
 f:\source\repos\ghost_repos\ghostpp-ufw\ghost\config.obj
 f:\source\repos\ghost_repos\ghostpp-ufw\ghost\crc32.obj
 f:\source\repos\ghost_repos\ghostpp-ufw\ghost\csvparser.obj
-f:\source\repos\ghost_repos\ghostpp-ufw\ghost\vc141.pdb
-f:\source\repos\ghost_repos\ghostpp-ufw\ghost\vc141.idb
+f:\source\repos\ghost_repos\ghostpp-ufw\ghost\elorating.obj
 f:\source\repos\ghost_repos\ghostpp-ufw\ghost\game.obj
+f:\source\repos\ghost_repos\ghostpp-ufw\ghost\gameplayer.obj
 f:\source\repos\ghost_repos\ghostpp-ufw\ghost\sqlite3.obj
-f:\source\repos\ghost_repos\ghostpp-ufw\ghost.exe
 f:\source\repos\ghost_repos\ghostpp-ufw\ghost\ghost.ilk
+f:\source\repos\ghost_repos\ghostpp-ufw\ghost.exe
 f:\source\repos\ghost_repos\ghostpp-ufw\debug mysql\ghost.pdb
 f:\source\repos\ghost_repos\ghostpp-ufw\ghost\ghost.tlog\cl.command.1.tlog
 f:\source\repos\ghost_repos\ghostpp-ufw\ghost\ghost.tlog\cl.read.1.tlog

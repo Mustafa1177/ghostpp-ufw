@@ -43,6 +43,7 @@ class CCallableDotAGameAdd;
 class CCallableDotAPlayerAdd;
 class CCallableDotAPlayerSummaryCheck;
 class CCallableDotAPlayerSummaryCheckNew;	//New
+class CCallableDotAPlayerStatsUpdate;		//New
 class CCallableDownloadAdd;
 class CCallableScoreCheck;
 class CCallableW3MMDPlayerAdd;
@@ -51,6 +52,8 @@ class CDBBan;
 class CDBGame;
 class CDBGamePlayer;
 class CDBGamePlayerSummary;
+class CDBDotAGame;
+class CDBDotAPlayer;
 class CDBDotAPlayerSummary;
 class CDBDotAPlayerSummaryNew;				//New
 class CCallableDotAPlayerAddNew;			//New
@@ -106,6 +109,7 @@ public:
 	virtual bool W3MMDVarAdd( uint32_t gameid, map<VarP,int32_t> var_ints );
 	virtual bool W3MMDVarAdd( uint32_t gameid, map<VarP,double> var_reals );
 	virtual bool W3MMDVarAdd( uint32_t gameid, map<VarP,string> var_strings );
+	virtual CDBDotAPlayerSummaryNew* DotAPlayerSummaryCheckNew(string name); //New
 
 	// threaded database functions
 
@@ -136,6 +140,8 @@ public:
 	//new
 	virtual CCallableDotAPlayerAddNew* ThreadedDotAPlayerAddNew(uint32_t gameid, uint32_t colour, uint32_t kills, uint32_t deaths, uint32_t creepkills, uint32_t creepdenies, uint32_t assists, uint32_t gold, uint32_t neutralkills, string item1, string item2, string item3, string item4, string item5, string item6, string hero, uint32_t newcolour, uint32_t towerkills, uint32_t raxkills, uint32_t courierkills);
 	virtual CCallableDotAPlayerSummaryCheckNew* ThreadedDotAPlayerSummaryCheckNew(string servername, string name, string mingames, string gamestate);
+	virtual CCallableDotAPlayerStatsUpdate* ThreadedDotAPlayerStatsUpdate(string servername, string name, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating);
+
 };
 
 //
@@ -911,7 +917,7 @@ public:
 		double nWinsPerGame, double nLossesPerGame,
 		double nKillsPerGame, double nDeathsPerGame, double nCreepKillsPerGame, double nCreepDeniesPerGame,
 		double nAssistsPerGame, double nNeutralKillsPerGame, double nScore, double nTowerKillsPerGame, double nRaxKillsPerGame, double nCourierKillsPerGame, uint32_t nRank,
-		uint32_t nTotalLeaves, uint32_t nTotalPlayedMinutes, uint32_t nRating, uint32_t nRatingPeak);
+		uint32_t nTotalLeaves, uint32_t nTotalPlayedMinutes, uint32_t nRating, uint32_t nRatingPeak, double nLeavesPerGame);
 	~CDBDotAPlayerSummaryNew();
 
 	string GetServer() { return m_Server; }
@@ -951,6 +957,9 @@ public:
 	float GetAvgRaxKills() { return m_TotalGames > 0 ? (float)m_TotalRaxKills / m_TotalGames : 0; }
 	float GetAvgCourierKills() { return m_TotalGames > 0 ? (float)m_TotalCourierKills / m_TotalGames : 0; }
 	uint32_t GetRating() { return m_Rating; }
+	uint32_t GetRatingPeak() { return m_RatingPeak; }
+	uint32_t GetTotalLeaves() { return m_TotalLeaves; }
+	uint32_t GetTotalPlayedMinutes() { return m_TotalPlayedMinutes; }
 	float GetLeavePercent() { return m_TotalWins + m_TotalLosses > 0 ? (float)m_TotalLeaves / (m_TotalWins + m_TotalLosses) : -1; }		//New
 };
 
@@ -1039,6 +1048,31 @@ public:
 };
 
 
+
+
+class CCallableDotAPlayerStatsUpdate : virtual public CBaseCallable
+{
+protected:
+	string m_ServerName;
+	string m_Name;
+	CDBDotAPlayer* m_DotAPlayer;	//stats to add to player row
+	CDBDotAGame* m_DotAGame;		//Needed for game duration etc
+	uint32_t m_BaseRating;			//Default Elo for new players
+	uint32_t m_Result;
+
+public:
+	CCallableDotAPlayerStatsUpdate(string nServerName, string nName, CDBDotAPlayer *nDotAPlayer, CDBDotAGame *nDotAGame, uint32_t nBaseRating) : CBaseCallable(), m_ServerName(nServerName), m_Name(nName), m_DotAPlayer(nDotAPlayer), m_DotAGame(nDotAGame), m_BaseRating(nBaseRating) { }
+	virtual ~CCallableDotAPlayerStatsUpdate();
+
+	virtual string GetServerName() { return m_ServerName; }
+	virtual string GetName() { return m_Name; }
+	virtual CDBDotAPlayer* GetDotAPlayer() { return m_DotAPlayer; }
+	virtual CDBDotAGame* GetDotAGame() { return m_DotAGame; }
+	virtual uint32_t GetBaseRating() { return m_BaseRating; }
+	virtual void SetBaseRating(uint32_t nBaseRating) { m_BaseRating = nBaseRating; }
+	virtual uint32_t GetResult() { return m_Result; }
+	virtual void SetResult(uint32_t nResult) { m_Result = nResult; }
+};
 
 
 //---------------------------------------------------------------------------------------------//

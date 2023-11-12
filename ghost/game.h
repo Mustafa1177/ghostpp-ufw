@@ -63,6 +63,7 @@ public:
 
 	virtual bool Update( void *fd, void *send_fd );
 	virtual void EventPlayerDeleted( CGamePlayer *player );
+	virtual void EventPlayerJoined(CPotentialPlayer* potential, CIncomingJoinPlayer* joinPlayer);
 	virtual void EventPlayerLeft(CGamePlayer* player, uint32_t reason);
 	virtual bool EventPlayerAction( CGamePlayer *player, CIncomingAction *action );
 	virtual bool EventPlayerBotCommand( CGamePlayer *player, string command, string payload );

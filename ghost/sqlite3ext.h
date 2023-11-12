@@ -192,7 +192,11 @@ struct sqlite3_api_routines {
   int (*release_memory)(int);
   void (*result_error_nomem)(sqlite3_context*);
   void (*result_error_toobig)(sqlite3_context*);
-  int (*sleep)(int);
+  int (*
+      
+      
+      
+      )(int);
   void (*soft_heap_limit)(int);
   sqlite3_vfs *(*vfs_find)(const char*);
   int (*vfs_register)(sqlite3_vfs*,int);

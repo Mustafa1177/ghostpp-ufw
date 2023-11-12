@@ -21,6 +21,8 @@
 #ifndef GAMEPLAYER_H
 #define GAMEPLAYER_H
 
+#include "ghostdb.h" //is this in the right place?
+
 class CTCPSocket;
 class CCommandPacket;
 class CGameProtocol;
@@ -171,10 +173,11 @@ public:
 	bool GetKickVote() { return m_KickVote; }
 	bool GetMuted() { return m_Muted; }
 	bool GetLeftMessageSent() { return m_LeftMessageSent; }
-	uint32_t GetDotARating() { return 1666; }
+	uint32_t GetDotARating() { return ddd? ddd->GetRating() : 1500; }
 	bool GetGProxy() { return m_GProxy; }
 	bool GetGProxyDisconnectNoticeSent() { return m_GProxyDisconnectNoticeSent; }
 	CDBDotAPlayerSummaryNew* GetDotASummary() { return (ddd ? ddd : NULL); }	//New  (is the implementaition correct?? (*))
+	//CDBDotAPlayerSummaryNew* GetDotASummary() { return  NULL; }	//New  (is the implementaition correct?? (*))
 	uint32_t GetGProxyReconnectKey() { return m_GProxyReconnectKey; }
 
 	void SetLeftReason(string nLeftReason) { m_LeftReason = nLeftReason; }
@@ -204,6 +207,7 @@ public:
 	void SetMuted(bool nMuted) { m_Muted = nMuted; }
 	void SetLeftMessageSent(bool nLeftMessageSent) { m_LeftMessageSent = nLeftMessageSent; }
 	void SetDotASummary(CDBDotAPlayerSummaryNew* nDotAPlayerSummary) { ddd = new CDBDotAPlayerSummaryNew(*nDotAPlayerSummary); }
+	//void SetDotASummary(CDBDotAPlayerSummaryNew* nDotAPlayerSummary) { int a = 1; }
 	void SetGProxyDisconnectNoticeSent(bool nGProxyDisconnectNoticeSent) { m_GProxyDisconnectNoticeSent = nGProxyDisconnectNoticeSent; }
 
 	string GetNameTerminated();

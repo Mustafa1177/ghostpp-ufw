@@ -35,6 +35,7 @@
 #include "stats.h"
 #include "statsdota.h"
 #include "statsw3mmd.h"
+#include "elorating.h"
 
 #include <cmath>
 #include <string.h>
@@ -85,6 +86,7 @@ CGame :: CGame( CGHost *nGHost, CMap *nMap, CSaveGame *nSaveGame, uint16_t nHost
 		m_Stats = new CStatsW3MMD( this, m_Map->GetMapStatsW3MMDCategory( ) );
 	else if( m_Map->GetMapType( ) == "dota" )
 		m_Stats = new CStatsDOTA( this );
+	TestDotaSubmit(nGHost, m_GHost->m_DB, 111);
 
 	m_GameLoadedTime = 0;
 }
@@ -363,19 +365,25 @@ bool CGame :: Update( void *fd, void *send_fd )
 					if (DotAPlayerSummary->GetRank() > 0)
 						RankS = RankS + "/" + UTIL_ToString(scorescount);
 
-					string Summary = "[" + i->second->GetName() + "] PSR: " + UTIL_ToString(DotAPlayerSummary->GetRating()) + " Games: " + UTIL_ToString(DotAPlayerSummary->GetTotalGames()) +
-						" (W/L: " + UTIL_ToString(DotAPlayerSummary->GetTotalWins()) + "/" + UTIL_ToString(DotAPlayerSummary->GetTotalLosses()) + ") " +
-						" KDA: " + UTIL_ToString(DotAPlayerSummary->GetAvgKills(),2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgDeaths(),2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgAssists(),2) +
-						" Creep KDN: " + UTIL_ToString(DotAPlayerSummary->GetAvgCreepKills(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgCreepDenies(),2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgNeutralKills(),2);
+					string SummaryMsg1 = "[" + i->second->GetName() + "] PSR: " + UTIL_ToString(DotAPlayerSummary->GetRating()) + " Games: " + UTIL_ToString(DotAPlayerSummary->GetTotalGames()) +
+						" (W/L: " + UTIL_ToString(DotAPlayerSummary->GetTotalWins()) + "/" + UTIL_ToString(DotAPlayerSummary->GetTotalLosses()) + ") Leave: " + UTIL_ToString(DotAPlayerSummary->GetLeavePercent() * 100,0) + "% WR: " + UTIL_ToString(DotAPlayerSummary->GetWinsPerGame(), 0) + "%";					
+					string SummaryMsg2 = "Hero KDA: " + UTIL_ToString(DotAPlayerSummary->GetAvgKills(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgDeaths(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgAssists(), 2) +
+						" Creep KDN: " + UTIL_ToString(DotAPlayerSummary->GetAvgCreepKills(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgCreepDenies(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgNeutralKills(), 2);
 
-					if (!Whisper)
-						SendAllChat(Summary);
+					if (!Whisper) 
+					{
+						SendAllChat(SummaryMsg1);
+						SendAllChat(SummaryMsg2);
+					}					
 					else
 					{
 						CGamePlayer* Player = GetPlayerFromName(i->first, true);
 
-						if (Player)
-							SendChat(Player, Summary);
+						if (Player) 
+						{
+							SendChat(Player, SummaryMsg1);
+							SendChat(Player, SummaryMsg2);
+						}						
 					}
 				}
 				else
@@ -385,19 +393,25 @@ bool CGame :: Update( void *fd, void *send_fd )
 			if (!sd)
 				if (DotAPlayerSummary)
 				{
-					string Summary = "[" + i->second->GetName() + "] PSR: " + UTIL_ToString(DotAPlayerSummary->GetRating()) + " Games: " + UTIL_ToString(DotAPlayerSummary->GetTotalGames()) +
-						" (W/L: " + UTIL_ToString(DotAPlayerSummary->GetTotalWins()) + "/" + UTIL_ToString(DotAPlayerSummary->GetTotalLosses()) + ") " +
-						" KDA: " + UTIL_ToString(DotAPlayerSummary->GetAvgKills(),2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgDeaths(),2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgAssists(),2) +
-						" Creep KDN: " + UTIL_ToString(DotAPlayerSummary->GetAvgCreepKills(),2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgCreepDenies(),2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgNeutralKills(),2);
+					string SummaryMsg1 = "[" + i->second->GetName() + "] PSR: " + UTIL_ToString(DotAPlayerSummary->GetRating()) + " Games: " + UTIL_ToString(DotAPlayerSummary->GetTotalGames()) +
+						" (W/L: " + UTIL_ToString(DotAPlayerSummary->GetTotalWins()) + "/" + UTIL_ToString(DotAPlayerSummary->GetTotalLosses()) + ") Leave: " + UTIL_ToString(DotAPlayerSummary->GetLeavePercent(), 0) + "% WR: " + UTIL_ToString(DotAPlayerSummary->GetWinsPerGame() * 100, 0) + "%";
+					string SummaryMsg2 = "Hero KDA: " + UTIL_ToString(DotAPlayerSummary->GetAvgKills(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgDeaths(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgAssists(), 2) +
+						" Creep KDN: " + UTIL_ToString(DotAPlayerSummary->GetAvgCreepKills(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgCreepDenies(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgNeutralKills(), 2);
 
-					if (i->first.empty())
-						SendAllChat(Summary);
+					if (i->first.empty()) 
+					{
+						SendAllChat(SummaryMsg1);
+						SendAllChat(SummaryMsg2);
+					}
 					else
 					{
 						CGamePlayer* Player = GetPlayerFromName(i->first, true);
 
 						if (Player)
-							SendChat(Player, Summary);
+						{
+							SendChat(Player, SummaryMsg1);
+							SendChat(Player, SummaryMsg2);
+						}
 					}
 				}
 				else
@@ -423,6 +437,21 @@ bool CGame :: Update( void *fd, void *send_fd )
 
 	return CBaseGame :: Update( fd, send_fd );
 }
+
+void CGame::EventPlayerJoined(CPotentialPlayer* potential, CIncomingJoinPlayer* joinPlayer)
+{
+	if(!m_Map->GetMapMatchMakingCategory().empty())
+	{
+		string StatsUser = joinPlayer->GetName();
+		string GameState = string();
+		string m_ScoreMinGames = "1";
+		m_PairedDPSChecksNew.push_back(PairedDPSCheckNew("%", m_GHost->m_DB->ThreadedDotAPlayerSummaryCheckNew(string(), StatsUser, m_ScoreMinGames, GameState)));
+
+	}
+
+	CBaseGame::EventPlayerJoined(potential, joinPlayer);
+}
+
 
 // this function is only called when a player leave packet is received, not when there's a socket error, kick, etc...
 void CGame::EventPlayerLeft(CGamePlayer* player, uint32_t reason)
@@ -810,22 +839,56 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 
 		else if (Command == "owner")
 		{
-			if (RootAdminCheck || IsOwner(User) || !GetPlayerFromName(m_OwnerName, false))
+			//anyone can be owner as long as the current owner is not in the game
+			string newOwner = string();
+			bool ownerIshere = GetPlayerFromName(m_OwnerName, false);
+			if ((ownerIshere && !RootAdminCheck) && !IsOwner(User))
+			{
+				newOwner = string(); //do not change owner
+			}
+			else if (!ownerIshere || RootAdminCheck || (IsOwner(User)))
 			{
 				if (!Payload.empty())
 				{
-					SendAllChat(m_GHost->m_Language->SettingGameOwnerTo(Payload));
-					m_OwnerName = Payload;
+					if (RootAdminCheck || IsOwner(User))
+					{
+						newOwner = Payload;
+						CGamePlayer* LastMatch = NULL;
+						uint32_t Matches = GetPlayerFromNamePartial(Payload, &LastMatch);
+						if (Matches == 1)
+							newOwner = LastMatch->GetName();
+					}
 				}
 				else
 				{
-					SendAllChat(m_GHost->m_Language->SettingGameOwnerTo(User));
-					m_OwnerName = User;
+					if (!IsOwner(User))
+					{
+						newOwner = User;
+					}
+					else
+					{
+						newOwner = string(); //do not change owner
+					}
+
 				}
+
+
+			}
+
+			if (newOwner.empty())
+			{
+				string reply = "Current game owner is [" + m_OwnerName + "]";
+				if (IsOwner(User) || RootAdminCheck)
+					SendAllChat(reply);
+				else
+					SendChat(player->GetPID(), reply);
 			}
 			else
-				SendAllChat(m_GHost->m_Language->UnableToSetGameOwner(m_OwnerName));
-				}
+			{
+				SendAllChat(m_GHost->m_Language->SettingGameOwnerTo(newOwner));
+				m_OwnerName = newOwner;
+			}
+		}
 
 		//
 		// !PING
@@ -897,6 +960,11 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 			if (Kicked > 0)
 				SendAllChat(m_GHost->m_Language->KickingPlayersWithPingsGreaterThan(UTIL_ToString(Kicked), UTIL_ToString(KickPing)));
 
+		}
+
+		else if (command == "tt") 
+		{
+			TestDotaSubmit(m_GHost, m_GHost->m_DB, 111);
 		}
 
 
@@ -1712,6 +1780,18 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 				}
 			}
 
+			else if (Command == "gs")
+			{
+				if (!Payload.empty())
+				{
+					double arg = UTIL_ToDouble(Payload);
+					if(arg >= 0 && arg <= 64)
+						m_GHost->m_GlobalSpeed = UTIL_ToDouble(Payload);
+					SendChat(player, "New value:" + UTIL_ToString(m_GHost->m_GlobalSpeed, 4));
+				}
+
+			}
+
 			//
 			// !MESSAGES
 			//
@@ -2097,6 +2177,7 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 		for (vector<CGamePlayer*> ::iterator i = SortedPlayers.begin(); i != SortedPlayers.end(); i++)
 		{
 			CDBDotAPlayerSummaryNew* dotaPlayerSummary = (*i)->GetDotASummary();
+
 			//int adrs = dotaPlayerSummary;
 			reply += (*i)->GetNameTerminated();
 			reply += "(";
@@ -2140,6 +2221,116 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 
 
 	}
+
+	//
+	// !R
+	//
+
+	else if (Command == "r")
+	{
+
+		string RUser = User;
+
+		if (!Payload.empty())
+		{
+			RUser = Payload;
+
+			CGamePlayer* LastMatch = NULL;
+
+			uint32_t Matches = GetPlayerFromNamePartial(Payload, &LastMatch);
+			if (Matches == 1)
+				RUser = LastMatch->GetName();
+			else
+			{
+				RUser = string();
+				SendChat(player, "Cannot find matches to name \"" + Payload + "\"");
+			}
+		}
+
+		if (!RUser.empty())
+		{
+			bool nonadmin = !((player->GetSpoofed() && AdminCheck) || RootAdminCheck || IsOwner(User));
+			CGamePlayer* Player = GetPlayerFromName(User, true);
+			if (Player)
+			{
+				unsigned char PlayerTeam;
+				unsigned char PID = Player->GetPID();
+
+				if (PID < 13)
+				{
+					unsigned char SID = GetSIDFromPID(PID);
+					if (SID < m_Slots.size())
+					{
+						PlayerTeam = m_Slots[SID].GetTeam();
+						if (PlayerTeam < MAX_SLOTS && (PlayerTeam == 0 || PlayerTeam == 1))
+						{
+							unsigned char EnemyTeam = PlayerTeam == 0 ? 1 : 0;
+							uint32_t PlayerRating = Player->GetDotARating();
+							uint32_t OpponentRaing = CalcTeamAvgRating(EnemyTeam, m_Players, this, m_Slots, m_Map->GetMapDefaultPlayerScore());
+							int32_t EloWin = 0;
+							int32_t EloLoss = 0;
+							CalculateEloRatingChange(PlayerRating, OpponentRaing, &EloWin, &EloLoss);
+
+							string Reply = "[" + Player->GetName() + "] Estimated PSR: " + UTIL_ToString(PlayerRating) + " (+" + UTIL_ToString(EloWin) + "/" + UTIL_ToString(EloLoss) + ")";
+							if (IsOwner(User) || RootAdminCheck)
+								SendAllChat(Reply);
+							else
+								SendChat(player->GetPID(), Reply);
+						}
+					}
+				}
+			}
+			else
+				SendChat(player->GetPID(),"Invalid player [" + RUser + "]");
+		}
+	}
+
+	//
+	// !RS
+	//
+
+	else if (Command == "rs" )
+	{
+		unsigned char TeamSizes[MAX_SLOTS];
+		uint32_t Team1RatingSum = 0, Team2RatingSum = 0;
+
+		for (vector<CGamePlayer*> ::iterator i = m_Players.begin(); i != m_Players.end(); ++i)
+		{
+			unsigned char PID = (*i)->GetPID();
+			if (PID < 13)
+			{
+				unsigned char SID = GetSIDFromPID(PID);
+				if (SID < m_Slots.size())
+				{
+					unsigned char Team = m_Slots[SID].GetTeam();
+					if (Team < MAX_SLOTS)
+					{
+						uint32_t Rating = (*i)->GetDotARating();
+						if (Rating < -99999.0)
+							Rating = m_Map->GetMapDefaultPlayerScore();
+
+						TeamSizes[Team]++;
+						if (Team == 0)
+							Team1RatingSum += Rating;
+						else if(Team == 1)
+							Team2RatingSum += Rating;
+					}
+				}
+			}
+		}
+
+		uint32_t AllTeamsRatingSum = Team1RatingSum + Team2RatingSum;
+		AllTeamsRatingSum = AllTeamsRatingSum != 0 ? AllTeamsRatingSum : 1;
+		uint32_t Team1Percentage = roundl((double)Team1RatingSum / (double)AllTeamsRatingSum) * 100;
+		uint32_t Team2Percentage = roundl((double)Team2RatingSum / (double)AllTeamsRatingSum) * 100;
+		string Reply = "Team1: " + UTIL_ToString(Team1RatingSum) + " (" + UTIL_ToString(Team1Percentage) + "%), " + "Team2: " + UTIL_ToString(Team2RatingSum) + " (" + UTIL_ToString(Team2Percentage) + "%)";
+		if (IsOwner(User) || RootAdminCheck)
+			SendAllChat(Reply);
+		else
+			SendChat(player->GetPID(), Reply);
+	}
+
+
 	//
 	// !STATS
 	//
@@ -2160,10 +2351,10 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 	}
 
 	//
-	// !SD (New)
+	// !RESD (refreshed SD) 
 	//
 
-	if (Command == "sd" && GetTime() >= player->GetStatsDotASentTime() + 1)
+	if (Command == "resd" && GetTime() >= player->GetStatsDotASentTime() + 1)
 	{
 		string StatsUser = User;
 		string GameState = string();
@@ -2187,6 +2378,67 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 		else
 			m_PairedDPSChecksNew.push_back(PairedDPSCheckNew("%" + User, m_GHost->m_DB->ThreadedDotAPlayerSummaryCheckNew(string(), StatsUser, m_ScoreMinGames, GameState)));
 
+		player->SetStatsDotASentTime(GetTime());
+	}
+
+	//
+	// !SD (New)
+	//
+
+	if (Command == "sd" && GetTime() >= player->GetStatsDotASentTime() + 1)
+	{
+		string StatsUser = User;
+
+		if (!Payload.empty())
+		{
+			StatsUser = Payload;
+
+			CGamePlayer* LastMatch = NULL;
+
+			uint32_t Matches = GetPlayerFromNamePartial(Payload, &LastMatch);
+			if (Matches == 1)
+				StatsUser = LastMatch->GetName();
+			else
+			{
+				StatsUser = string();
+					SendChat(player,"Cannot find matches to name \"" + Payload + "\"");
+			}
+				
+		}
+
+		if (!StatsUser.empty()) 
+		{		
+			bool nonadmin = !((player->GetSpoofed() && AdminCheck) || RootAdminCheck || IsOwner(User));
+			CGamePlayer* Player = GetPlayerFromName(User, true);
+			if (Player)
+			{
+				CDBDotAPlayerSummaryNew* DotAPlayerSummary = Player->GetDotASummary();
+				if (DotAPlayerSummary)
+				{
+					string SummaryMsg1 = "[" + DotAPlayerSummary->GetName() + "] PSR: " + UTIL_ToString(DotAPlayerSummary->GetRating()) + " Games: " + UTIL_ToString(DotAPlayerSummary->GetTotalGames()) +
+						" (W/L: " + UTIL_ToString(DotAPlayerSummary->GetTotalWins()) + "/" + UTIL_ToString(DotAPlayerSummary->GetTotalLosses()) + ") Leave: " + UTIL_ToString(DotAPlayerSummary->GetLeavePercent() * 100, 0) + "% WR: " + UTIL_ToString(DotAPlayerSummary->GetWinsPerGame(), 0) + "%";
+					string SummaryMsg2 = "Hero KDA: " + UTIL_ToString(DotAPlayerSummary->GetAvgKills(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgDeaths(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgAssists(), 2) +
+						" Creep KDN: " + UTIL_ToString(DotAPlayerSummary->GetAvgCreepKills(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgCreepDenies(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgNeutralKills(), 2);
+					if(nonadmin)
+					{
+						SendChat(Player, SummaryMsg1);
+						SendChat(Player, SummaryMsg2);
+					}
+					else
+					{
+						SendAllChat(SummaryMsg1);
+						SendAllChat(SummaryMsg2);
+					}
+				}
+				else
+				{
+					if (nonadmin)
+						SendChat(player, m_GHost->m_Language->HasntPlayedGamesWithThisBot(StatsUser));
+					else
+						SendAllChat(m_GHost->m_Language->HasntPlayedGamesWithThisBot(StatsUser));
+				}
+			}		
+		}
 		player->SetStatsDotASentTime(GetTime());
 	}
 
@@ -2337,6 +2589,7 @@ void CGame :: SaveGameData( )
 
 
 //New=============================================
+
 void CBaseGame::ReCalculateTeams()
 {
 	unsigned char sid;
@@ -2382,3 +2635,5 @@ void CBaseGame::ReCalculateTeams()
 	}
 
 }
+
+

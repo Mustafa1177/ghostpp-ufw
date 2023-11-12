@@ -216,6 +216,8 @@ public:
 	virtual CCallableDotAPlayerAddNew* ThreadedDotAPlayerAddNew(uint32_t gameid, uint32_t colour, uint32_t kills, uint32_t deaths, uint32_t creepkills, uint32_t creepdenies, uint32_t assists, uint32_t gold, uint32_t neutralkills, string item1, string item2, string item3, string item4, string item5, string item6, string hero, uint32_t newcolour, uint32_t towerkills, uint32_t raxkills, uint32_t courierkills);
 	virtual CCallableDotAPlayerSummaryCheckNew* ThreadedDotAPlayerSummaryCheckNew(string servername, string name, string mingames, string gamestate);
 	//					delete this:	  CMySQLCallableDotAPlayerSummaryCheckNew( string nServer, string nName, string nMinGames, string nGameState,
+	virtual CCallableDotAPlayerStatsUpdate* ThreadedDotAPlayerStatsUpdate(string nServerName, string nName, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating);
+												//(void* conn, string* error, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating);
 	// 
 	// other database functions
 
@@ -253,6 +255,7 @@ bool MySQLW3MMDVarAdd( void *conn, string *error, uint32_t botid, uint32_t gamei
 uint32_t MySQLDotAPlayerAddNew(void* conn, string* error, uint32_t botid, uint32_t gameid, uint32_t colour, uint32_t kills, uint32_t deaths, uint32_t creepkills, uint32_t creepdenies, uint32_t assists, uint32_t gold, uint32_t neutralkills, string item1, string item2, string item3, string item4, string item5, string item6, string hero, uint32_t newcolour, uint32_t towerkills, uint32_t raxkills, uint32_t courierkills);
 //CDBDotAPlayerSummaryNew *MySQLDotAPlayerSummaryCheckNew( void *conn, string *error, uint32_t botid, string servername, string name, string mingames, string gamestate );
 CDBDotAPlayerSummaryNew* MySQLDotAPlayerSummaryCheckNew(void* conn, string* error, string name, string servername, string formula, string mingames);
+uint32_t MySQLDotAPlayerStatsUpdate(void* conn, string* error, string nServerName, string nName, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating);
 
 //
 // MySQL Callables
@@ -512,6 +515,18 @@ public: //incomplete
 	CMySQLCallableDotAPlayerAddNew(uint32_t nGameID, uint32_t nColour, uint32_t nKills, uint32_t nDeaths, uint32_t nCreepKills, uint32_t nCreepDenies, uint32_t nAssists, uint32_t nGold, uint32_t nNeutralKills, string nItem1, string nItem2, string nItem3, string nItem4, string nItem5, string nItem6, string nHero, uint32_t nNewColour, uint32_t nTowerKills, uint32_t nRaxKills, uint32_t nCourierKills, void* nConnection, uint32_t nSQLBotID, string nSQLServer, string nSQLDatabase, string nSQLUser, string nSQLPassword, uint16_t nSQLPort) : CBaseCallable(), CCallableDotAPlayerAddNew(nGameID, nColour, nKills, nDeaths, nCreepKills, nCreepDenies, nAssists, nGold, nNeutralKills, nItem1, nItem2, nItem3, nItem4, nItem5, nItem6, nHero, nNewColour, nTowerKills, nRaxKills, nCourierKills), CMySQLCallable(nConnection, nSQLBotID, nSQLServer, nSQLDatabase, nSQLUser, nSQLPassword, nSQLPort) { }
 
 	virtual ~CMySQLCallableDotAPlayerAddNew() { }
+
+	virtual void operator( )();
+	virtual void Init() { CMySQLCallable::Init(); }
+	virtual void Close() { CMySQLCallable::Close(); }
+};
+
+class CMySQLCallableDotAPlayerStatsUpdate : public CCallableDotAPlayerStatsUpdate, public CMySQLCallable
+{
+public:
+	CMySQLCallableDotAPlayerStatsUpdate(string nServerName, string nName, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating, void* nConnection, uint32_t nSQLBotID, string nSQLServer, string nSQLDatabase, string nSQLUser, string nSQLPassword, uint16_t nSQLPort) : CBaseCallable(), CCallableDotAPlayerStatsUpdate(nServerName,nName,nDotAPlayer,nDotAGame,nBaseRating), CMySQLCallable(nConnection, nSQLBotID, nSQLServer, nSQLDatabase, nSQLUser, nSQLPassword, nSQLPort) { }
+
+	virtual ~CMySQLCallableDotAPlayerStatsUpdate() { }
 
 	virtual void operator( )();
 	virtual void Init() { CMySQLCallable::Init(); }

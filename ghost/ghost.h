@@ -155,6 +155,7 @@ public:
 	uint32_t m_AutoBanGameLoading;			// Ban if leave during loading
 	uint32_t m_AutoBanCountDown;			// Ban if leave during game start countdown.
 	uint32_t m_AutoBanGameEndMins;			// Ban if not left around x mins of game end time.
+	double m_GlobalSpeed = 0;
 	CGHost( CConfig *CFG );
 	~CGHost( );
 

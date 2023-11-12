@@ -1049,7 +1049,7 @@ bool CBaseGame :: Update( void *fd, void *send_fd )
 	// send actions every m_Latency milliseconds
 	// actions are at the heart of every Warcraft 3 game but luckily we don't need to know their contents to relay them
 	// we queue player actions in EventPlayerAction then just resend them in batches to all players here
-
+	
 	if( m_GameLoaded && !m_Lagging && GetTicks( ) - m_LastActionSentTicks >= m_Latency - m_LastActionLateBy )
 		SendAllActions( );
 
@@ -4283,7 +4283,168 @@ vector<unsigned char> CBaseGame :: BalanceSlotsRecursive( vector<unsigned char> 
 	return BestOrdering;
 }
 
-void CBaseGame :: BalanceSlots( )
+
+void CBaseGame::BalanceSlots()
+{
+	if (!(m_Map->GetMapOptions() & MAPOPT_FIXEDPLAYERSETTINGS))
+	{
+		CONSOLE_Print("[GAME: " + m_GameName + "] error balancing slots - can't balance slots without fixed player settings");
+		return;
+	}
+
+	// setup the necessary variables for the balancing algorithm
+	// use an array of 13 elements for MAX_SLOTS players because GHost++ allocates PID's from 1-MAX_SLOTS (i.e. excluding 0) and we use the PID to index the array
+
+	vector<unsigned char> PlayerIDs;
+	unsigned char TeamSizes[MAX_SLOTS];
+	double PlayerScores[13];
+	memset(TeamSizes, 0, sizeof(unsigned char) * MAX_SLOTS);
+
+	for (vector<CGamePlayer*> ::iterator i = m_Players.begin(); i != m_Players.end(); ++i)
+	{
+		unsigned char PID = (*i)->GetPID();
+
+		if (PID < 13)
+		{
+			unsigned char SID = GetSIDFromPID(PID);
+
+			if (SID < m_Slots.size())
+			{
+				unsigned char Team = m_Slots[SID].GetTeam();
+
+				if (Team < MAX_SLOTS)
+				{
+					// we are forced to use a default score because there's no way to balance the teams otherwise
+
+					double Score = (*i)->GetScore();
+
+					if (Score < -99999.0)
+						Score = m_Map->GetMapDefaultPlayerScore();
+
+					PlayerIDs.push_back(PID);
+					TeamSizes[Team]++;
+					PlayerScores[PID] = Score;
+				}
+			}
+		}
+	}
+
+	sort(PlayerIDs.begin(), PlayerIDs.end());
+
+	// balancing the teams is a variation of the bin packing problem which is NP
+	// we can have up to MAX_SLOTS players and/or teams so the scope of the problem is sometimes small enough to process quickly
+	// let's try to figure out roughly how much work this is going to take
+	// examples:
+	//  2 teams of 4 =     70 ~    5ms *** ok
+	//  2 teams of 5 =    252 ~    5ms *** ok
+	//  2 teams of 6 =    924 ~   20ms *** ok
+	//  3 teams of 2 =     90 ~    5ms *** ok
+	//  3 teams of 3 =   1680 ~   25ms *** ok
+	//  3 teams of 4 =  34650 ~  250ms *** will cause a lag spike
+	//  4 teams of 2 =   2520 ~   30ms *** ok
+	//  4 teams of 3 = 369600 ~ 3500ms *** unacceptable
+
+	uint32_t AlgorithmCost = 0;
+	uint32_t PlayersLeft = PlayerIDs.size();
+
+	for (unsigned char i = 0; i < MAX_SLOTS; ++i)
+	{
+		if (TeamSizes[i] > 0)
+		{
+			if (AlgorithmCost == 0)
+				AlgorithmCost = nCr(PlayersLeft, TeamSizes[i]);
+			else
+				AlgorithmCost *= nCr(PlayersLeft, TeamSizes[i]);
+
+			PlayersLeft -= TeamSizes[i];
+		}
+	}
+
+	if (AlgorithmCost > 40000)
+	{
+		// the cost is too high, don't run the algorithm
+		// a possible alternative: stop after enough iterations and/or time has passed
+
+		CONSOLE_Print("[GAME: " + m_GameName + "] shuffling slots instead of balancing - the algorithm is too slow (with a cost of " + UTIL_ToString(AlgorithmCost) + ") for this team configuration");
+		SendAllChat(m_GHost->m_Language->ShufflingPlayers());
+		ShuffleSlots();
+		return;
+	}
+
+	uint32_t StartTicks = GetTicks();
+	vector<unsigned char> BestOrdering = BalanceSlotsRecursive(PlayerIDs, TeamSizes, PlayerScores, 0);
+	uint32_t EndTicks = GetTicks();
+
+	// the BestOrdering assumes the teams are in slot order although this may not be the case
+	// so put the players on the correct teams regardless of slot order
+
+	vector<unsigned char> ::iterator CurrentPID = BestOrdering.begin();
+
+	for (unsigned char i = 0; i < MAX_SLOTS; ++i)
+	{
+		unsigned char CurrentSlot = 0;
+
+		for (unsigned char j = 0; j < TeamSizes[i]; ++j)
+		{
+			while (CurrentSlot < m_Slots.size() && m_Slots[CurrentSlot].GetTeam() != i)
+				++CurrentSlot;
+
+			// put the CurrentPID player on team i by swapping them into CurrentSlot
+
+			unsigned char SID1 = CurrentSlot;
+			unsigned char SID2 = GetSIDFromPID(*CurrentPID);
+
+			if (SID1 < m_Slots.size() && SID2 < m_Slots.size())
+			{
+				CGameSlot Slot1 = m_Slots[SID1];
+				CGameSlot Slot2 = m_Slots[SID2];
+				m_Slots[SID1] = CGameSlot(Slot2.GetPID(), Slot2.GetDownloadStatus(), Slot2.GetSlotStatus(), Slot2.GetComputer(), Slot1.GetTeam(), Slot1.GetColour(), Slot1.GetRace());
+				m_Slots[SID2] = CGameSlot(Slot1.GetPID(), Slot1.GetDownloadStatus(), Slot1.GetSlotStatus(), Slot1.GetComputer(), Slot2.GetTeam(), Slot2.GetColour(), Slot2.GetRace());
+			}
+			else
+			{
+				CONSOLE_Print("[GAME: " + m_GameName + "] shuffling slots instead of balancing - the balancing algorithm tried to do an invalid swap (this shouldn't happen)");
+				SendAllChat(m_GHost->m_Language->ShufflingPlayers());
+				ShuffleSlots();
+				return;
+			}
+
+			++CurrentPID;
+			++CurrentSlot;
+		}
+	}
+
+	CONSOLE_Print("[GAME: " + m_GameName + "] balancing slots completed in " + UTIL_ToString(EndTicks - StartTicks) + "ms (with a cost of " + UTIL_ToString(AlgorithmCost) + ")");
+	SendAllChat(m_GHost->m_Language->BalancingSlotsCompleted());
+	SendAllSlotInfo();
+
+	for (unsigned char i = 0; i < MAX_SLOTS; ++i)
+	{
+		bool TeamHasPlayers = false;
+		double TeamScore = 0.0;
+
+		for (vector<CGamePlayer*> ::iterator j = m_Players.begin(); j != m_Players.end(); ++j)
+		{
+			unsigned char SID = GetSIDFromPID((*j)->GetPID());
+
+			if (SID < m_Slots.size() && m_Slots[SID].GetTeam() == i)
+			{
+				TeamHasPlayers = true;
+				double Score = (*j)->GetScore();
+
+				if (Score < -99999.0)
+					Score = m_Map->GetMapDefaultPlayerScore();
+
+				TeamScore += Score;
+			}
+		}
+
+		if (TeamHasPlayers)
+			SendAllChat(m_GHost->m_Language->TeamCombinedScore(UTIL_ToString(i + 1), UTIL_ToString(TeamScore, 2)));
+	}
+}
+
+void CBaseGame :: BalanceSlotsNew( )
 {
 	if( !( m_Map->GetMapOptions( ) & MAPOPT_FIXEDPLAYERSETTINGS ) )
 	{
@@ -4315,7 +4476,7 @@ void CBaseGame :: BalanceSlots( )
 				{
 					// we are forced to use a default score because there's no way to balance the teams otherwise
 
-					double Score = (*i)->GetScore( );
+					double Score = (*i)->GetDotARating( );
 
 					if( Score < -99999.0 )
 						Score = m_Map->GetMapDefaultPlayerScore( );
@@ -4818,4 +4979,43 @@ bool CBaseGame::IsAutoBanned(string name)
 	}
 
 	return false;
+}
+
+void CBaseGame::TestDotaSubmit(CGHost* GHost, CGHostDB* DB, uint32_t GameID)
+{
+	string m_Game_GetGameName = "haha"; // m_Game->GetGameName()
+	int Players = 0;
+	CDBDotAPlayer* m_Players[12];
+	string playerNames[12];
+	uint32_t m_Winner = 1;
+	uint32_t m_Min = 45;
+	uint32_t m_Sec = 31;
+
+	m_Players[1] = new CDBDotAPlayer();
+	playerNames[1] = "Dev";
+
+	m_Players[1]->SetColour(1);
+	m_Players[1]->SetCourierKills(m_Players[1]->GetCourierKills() + 1);
+
+
+	for (unsigned int i = 0; i < 12; ++i)
+	{
+		if (m_Players[i])
+		{
+			if (!empty(playerNames[i]))
+			{
+				//New
+				//CONSOLE_Print("[STATSDOTANEW!: " + m_Game->GetGameName() + "] saving " + UTIL_ToString(Players) + " players");
+				CONSOLE_Print("[STATSDOTANEW!: " + m_Game_GetGameName + "] saving " + UTIL_ToString(Players) + " players");
+				CDBDotAGame* DotaGame = new CDBDotAGame(0, 0, m_Winner, m_Min, m_Sec);
+				string serverName = string();
+				GHost->m_Callables.push_back(DB->ThreadedDotAPlayerStatsUpdate(serverName, playerNames[i], m_Players[i], DotaGame, 1500)); //Player->GetSpoofedRealm() should be the entered as servername param
+
+			}
+
+			//back!!  GHost->m_Callables.push_back(DB->ThreadedDotAPlayerAdd(GameID, m_Players[i]->GetColour(), m_Players[i]->GetKills(), m_Players[i]->GetDeaths(), m_Players[i]->GetCreepKills(), m_Players[i]->GetCreepDenies(), m_Players[i]->GetAssists(), m_Players[i]->GetGold(), m_Players[i]->GetNeutralKills(), m_Players[i]->GetItem(0), m_Players[i]->GetItem(1), m_Players[i]->GetItem(2), m_Players[i]->GetItem(3), m_Players[i]->GetItem(4), m_Players[i]->GetItem(5), m_Players[i]->GetHero(), m_Players[i]->GetNewColour(), m_Players[i]->GetTowerKills(), m_Players[i]->GetRaxKills(), m_Players[i]->GetCourierKills()));
+
+			++Players;
+		}
+	}
 }

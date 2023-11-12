@@ -81,6 +81,13 @@ uint32_t gLogMethod;
 ofstream *gLog = NULL;
 CGHost *gGHost = NULL;
 boost::mutex PrintMutex;
+float_t globalSpeed = 0;
+
+
+float_t GetGlobalSpeed()
+{
+	return gGHost->m_GlobalSpeed;
+}
 
 uint32_t GetTime( )
 {
@@ -94,7 +101,11 @@ uint32_t GetTicks( )
 	// don't use QueryPerformanceCounter anymore because it isn't guaranteed to be strictly increasing on some systems and thus requires "smoothing" code
 	// use timeGetTime instead, which typically has a high resolution (5ms or more) but we request a lower resolution on startup
 
-	return timeGetTime( );
+	if(!gGHost || gGHost->m_GlobalSpeed == 0)
+		return timeGetTime( );
+	else
+		return timeGetTime( ) * gGHost->m_GlobalSpeed;
+
 #elif __APPLE__
 	uint64_t current = mach_absolute_time( );
 	static mach_timebase_info_data_t info = { 0, 0 };
@@ -110,7 +121,10 @@ uint32_t GetTicks( )
 	clock_gettime( CLOCK_MONOTONIC, &t );
 	ticks = t.tv_sec * 1000;
 	ticks += t.tv_nsec / 1000000;
-	return ticks;
+	if (!gGHost || gGHost->m_GlobalSpeed == 0)
+		return ticks;
+	else
+		return ticks * gGHost->m_GlobalSpeed;
 #endif
 }
 

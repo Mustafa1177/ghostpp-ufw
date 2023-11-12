@@ -29,7 +29,7 @@
 #include "gameprotocol.h"
 #include "gpsprotocol.h"
 #include "game_base.h"
-#include "ghostdb.h"
+//#include "ghostdb.h"
 
 //
 // CPotentialPlayer
@@ -230,7 +230,7 @@ CGamePlayer::CGamePlayer(CGameProtocol* nProtocol, CBaseGame* nGame, CTCPSocket*
 	m_GProxyDisconnectNoticeSent = false;
 	m_GProxyReconnectKey = GetTicks();
 	m_LastGProxyAckTime = 0;
-
+	ddd = NULL;
 }
 
 CGamePlayer::CGamePlayer(CPotentialPlayer* potential, unsigned char nPID, string nJoinedRealm, string nName, BYTEARRAY nInternalIP, bool nReserved) : CPotentialPlayer(potential->m_Protocol, potential->m_Game, potential->GetSocket())

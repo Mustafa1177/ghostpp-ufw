@@ -1497,6 +1497,7 @@ CDBDotAPlayerSummaryNew* MySQLDotAPlayerSummaryCheckNew(void* conn, string* erro
 					double tkpg = (double)TotalTowerKills / SeasonGames;
 					double rkpg = (double)TotalRaxKills / SeasonGames;
 					double coukpg = (double)TotalCourierKills / SeasonGames;
+					double lvpg = (double)TotalLeaves / SeasonGames;
 					////////////////////////////////////////////////server = Row[21];
 //					double Score = UTIL_ToDouble( Row[21] );
 					uint32_t Rank = 0;
@@ -1506,7 +1507,7 @@ CDBDotAPlayerSummaryNew* MySQLDotAPlayerSummaryCheckNew(void* conn, string* erro
 					lpg = lpg * 100;
 
 					DotAPlayerSummary = new CDBDotAPlayerSummaryNew(string(), name, TotalGames, TotalWins, TotalLosses, TotalKills, TotalDeaths, TotalCreepKills, TotalCreepDenies, TotalAssists, TotalNeutralKills, TotalTowerKills, TotalRaxKills, TotalCourierKills, wpg, lpg, kpg, dpg, ckpg, cdpg, apg, nkpg, Score, tkpg, rkpg, coukpg, Rank,
-						TotalLeaves, TotalPlayTime, Rating, RatingPeak);
+						TotalLeaves, TotalPlayTime, Rating, RatingPeak, lvpg);
 				}
 			}
 			else;
@@ -1519,6 +1520,230 @@ CDBDotAPlayerSummaryNew* MySQLDotAPlayerSummaryCheckNew(void* conn, string* erro
 	}
 
 	return DotAPlayerSummary;
+}
+
+uint32_t MySQLDotAPlayerStatsUpdate(void* conn, string* error, string serverName, string name, CDBDotAPlayer* dotaPlayer, CDBDotAGame* dotaGame, uint32_t baseRating)
+{
+	uint32_t RowID = 0;
+
+	bool RowExists;
+	string SdError = string();
+	//m_Result = MySQLDotAPlayerSummaryCheck(m_Connection, &m_Error, m_SQLBotID, m_Name);
+	//CDBDotAPlayerSummaryNew *CurrentPlayerSummary = MySQLDotAPlayerSummaryCheckNew(conn, &SdError, name, serverName, "", 0);
+	string forforfor = "form";
+	CDBDotAPlayerSummaryNew* CurrentPlayerSummary = NULL;
+	
+
+
+	//ThreadedDotAPlayerSummaryCheckNew   LEARN FROM THIS
+	/*
+	CCallableDotAPlayerSummaryCheckNew* Callable = new CMySQLCallableDotAPlayerSummaryCheckNew(serverName, name, UTIL_ToString(minGames), gamestate, Connection, m_BotID, m_Server, m_Database, m_User, m_Password, m_Port);
+	CreateThread(Callable);
+	//m_Result = MySQLDotAPlayerStatsUpdate(m_Connection, &m_Error, m_ServerName, m_Name, m_DotAPlayer, m_DotAGame, m_BaseRating);
+	CGHostDBMySQL;
+	CGHostDB db = NULL;
+	db.DotAPlayerSummaryCheckNew(name);
+	*/
+
+	//======================================================================
+
+
+
+	//Now lets retrieve current stats from DB (Copied and pasted from above function)
+	//==================================================================
+	transform(name.begin(), name.end(), name.begin(), (int(*)(int))tolower);
+	string EscName = MySQLEscapeString(conn, name);
+	string EscServerName = MySQLEscapeString(conn, serverName);
+	uint32_t Rank = 0;
+	double Score = -10000;
+	string server = string();
+	CDBDotAPlayerSummaryNew* DotAPlayerSummary = NULL;
+	//	string Query = "select totgames,wins,losses,killstotal,deathstotal,creepkillstotal,creepdeniestotal,assiststotal,neutralkillstotal,towerkillstotal,raxkillstotal,courierkillstotal,kills,deaths,creepkills,creepdenies,assists,neutralkills,towerkills,raxkills,courierkills, ("+formula+") as totalscore,server from(select *, (kills/deaths) as killdeathratio, (totgames-wins) as losses from (select gp.name as name,ga.server as server,gp.gameid as gameid, gp.colour as colour, avg(dp.courierkills) as courierkills, sum(dp.raxkills) as raxkillstotal, sum(dp.towerkills) as towerkillstotal, sum(dp.assists) as assiststotal,sum(dp.courierkills) as courierkillstotal, sum(dp.creepdenies) as creepdeniestotal, sum(dp.creepkills) as creepkillstotal,sum(dp.neutralkills) as neutralkillstotal, sum(dp.deaths) as deathstotal, sum(dp.kills) as killstotal,avg(dp.raxkills) as raxkills,avg(dp.towerkills) as towerkills, avg(dp.assists) as assists, avg(dp.creepdenies) as creepdenies, avg(dp.creepkills) as creepkills,avg(dp.neutralkills) as neutralkills, avg(dp.deaths) as deaths, avg(dp.kills) as kills,count(*) as totgames, SUM(case when((dg.winner = 1 and dp.newcolour < 6) or (dg.winner = 2 and dp.newcolour > 6)) then 1 else 0 end) as wins from gameplayers as gp, dotagames as dg, games as ga,dotaplayers as dp where dg.winner <> 0 and dp.gameid = gp.gameid and dg.gameid = dp.gameid and dp.gameid = ga.id and gp.gameid = dg.gameid and gp.colour = dp.colour and gp.name='"+name+"' group by gp.name) as h) as i";
+	string Query = "SELECT name, servername, rating, ratingpeak, games, wins, loses, kills, deaths, assists, creepkills, creepdenies, neutralkills, towerkills, raxkills, courierkills, leaves, playtime, joindate FROM `dotaplayerstats` WHERE `name` = '" + EscName + "' AND `servername` = '" + EscServerName + "' LIMIT 1";
+	//				0			1		2		3			4		5	6		7		8		9			10			11			12			13			14			15			16		17			18
+	if (mysql_real_query((MYSQL*)conn, Query.c_str(), Query.size()) != 0)
+		*error = mysql_error((MYSQL*)conn);
+	else
+	{
+		MYSQL_RES* Result = mysql_store_result((MYSQL*)conn);
+
+		if (Result)
+		{
+			vector<string> Row = MySQLFetchRow(Result);
+
+			if (Row.size() == 19)
+			{
+				string ResPlayerName = Row[0];
+				string ResServerName = Row[1];
+				uint32_t TotalGames = UTIL_ToUInt32(Row[4]);
+
+				if (TotalGames > 0)
+				{
+					uint32_t Rating = UTIL_ToUInt32(Row[3]);
+					uint32_t RatingPeak = UTIL_ToUInt32(Row[4]);
+					uint32_t TotalWins = UTIL_ToUInt32(Row[5]);
+					uint32_t TotalLosses = UTIL_ToUInt32(Row[6]);
+					uint32_t TotalKills = UTIL_ToUInt32(Row[7]);
+					uint32_t TotalDeaths = UTIL_ToUInt32(Row[8]);
+					uint32_t TotalAssists = UTIL_ToUInt32(Row[9]);
+					uint32_t TotalCreepKills = UTIL_ToUInt32(Row[10]);
+					uint32_t TotalCreepDenies = UTIL_ToUInt32(Row[11]);
+					uint32_t TotalNeutralKills = UTIL_ToUInt32(Row[12]);
+					uint32_t TotalTowerKills = UTIL_ToUInt32(Row[13]);
+					uint32_t TotalRaxKills = UTIL_ToUInt32(Row[14]);
+					uint32_t TotalCourierKills = UTIL_ToUInt32(Row[15]);
+					uint32_t TotalLeaves = UTIL_ToUInt32(Row[16]);
+					uint32_t TotalPlayTime = UTIL_ToUInt32(Row[17]);
+
+					uint32_t SeasonGames = TotalWins + TotalLosses;
+					SeasonGames = SeasonGames != 0 ? SeasonGames : 1; //prevent division by zero
+
+					double wpg = 0;
+					double lpg = 0;
+					double kpg = (double)TotalKills / SeasonGames;
+					double dpg = (double)TotalDeaths / SeasonGames;
+					double ckpg = (double)TotalCreepKills / SeasonGames;
+					double cdpg = (double)TotalCreepDenies / SeasonGames;
+					double apg = (double)TotalAssists / SeasonGames;
+					double nkpg = (double)TotalNeutralKills / SeasonGames;
+					double tkpg = (double)TotalTowerKills / SeasonGames;
+					double rkpg = (double)TotalRaxKills / SeasonGames;
+					double coukpg = (double)TotalCourierKills / SeasonGames;
+					double lvpg = (double)TotalLeaves / SeasonGames;
+					////////////////////////////////////////////////server = Row[21];
+//					double Score = UTIL_ToDouble( Row[21] );
+					uint32_t Rank = 0;
+					wpg = (double)TotalWins / SeasonGames;
+					lpg = (double)TotalLosses / SeasonGames;
+					wpg = wpg * 100;
+					lpg = lpg * 100;
+
+					DotAPlayerSummary = new CDBDotAPlayerSummaryNew(string(), name, TotalGames, TotalWins, TotalLosses, TotalKills, TotalDeaths, TotalCreepKills, TotalCreepDenies, TotalAssists, TotalNeutralKills, TotalTowerKills, TotalRaxKills, TotalCourierKills, wpg, lpg, kpg, dpg, ckpg, cdpg, apg, nkpg, Score, tkpg, rkpg, coukpg, Rank,
+						TotalLeaves, TotalPlayTime, Rating, RatingPeak, lvpg);
+				}
+			}
+			else;
+			//				*error = "error checking dotaplayersummary [" + name + "] - row doesn't have 23 columns";
+
+			mysql_free_result(Result);
+		}
+		else
+			*error = mysql_error((MYSQL*)conn);
+	}
+
+	//We retrieved current stats
+	//=====================================================================================
+	CurrentPlayerSummary = DotAPlayerSummary;
+
+
+
+	uint32_t minGames = 1;
+	//CCallableDotAPlayerSummaryCheckNew* Callable = new CMySQLCallableDotAPlayerSummaryCheckNew(serverName, name, UTIL_ToString(minGames), string(), conn, 0, string(), m_Database, m_User, m_Password, m_Port);
+
+
+	if (SdError.empty())
+	{
+		if (!CurrentPlayerSummary)
+		{
+			RowExists = false;
+			CurrentPlayerSummary = new CDBDotAPlayerSummaryNew(serverName, name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, baseRating, 0, 0);
+		}
+		else
+			RowExists = true;
+
+		bool won = (dotaGame->GetWinner() == 1 && dotaPlayer->GetNewColour() >= 1 && dotaPlayer->GetNewColour() <= 5) || (dotaGame->GetWinner() == 2 && dotaPlayer->GetNewColour() >= 7 && dotaPlayer->GetNewColour() <= 11);	//"' AND ((winner=1 AND dotaplayers.newcolour>=1 AND dotaplayers.newcolour<=5) OR (winner=2 AND dotaplayers.newcolour>=7 AND dotaplayers.newcolour<=11))"
+		bool lost = (dotaGame->GetWinner() == 2 && dotaPlayer->GetNewColour() >= 1 && dotaPlayer->GetNewColour() <= 5) || (dotaGame->GetWinner() == 1 && dotaPlayer->GetNewColour() >= 7 && dotaPlayer->GetNewColour() <= 11); 	//		 ((winner=2 AND dotaplayers.newcolour>=1 AND dotaplayers.newcolour<=5) OR (winner=1 AND dotaplayers.newcolour>=7 AND dotaplayers.newcolour<=11))
+		uint32_t newRating = CurrentPlayerSummary->GetRating() + 0;
+		
+		CDBDotAPlayerSummaryNew UpdatedPlayerSummary(CurrentPlayerSummary->GetServer(), CurrentPlayerSummary->GetName(), CurrentPlayerSummary->GetTotalGames() + 1,
+			CurrentPlayerSummary->GetTotalWins() + (won ? 1 : 0), CurrentPlayerSummary->GetTotalLosses() + (lost ? 1 : 0), CurrentPlayerSummary->GetTotalKills() + dotaPlayer->GetKills(), CurrentPlayerSummary->GetTotalDeaths() + dotaPlayer->GetDeaths(),
+			CurrentPlayerSummary->GetTotalCourierKills() + dotaPlayer->GetCreepKills(), CurrentPlayerSummary->GetTotalCreepDenies() + dotaPlayer->GetCreepDenies(), CurrentPlayerSummary->GetTotalAssists() + dotaPlayer->GetAssists(), CurrentPlayerSummary->GetTotalNeutralKills() + dotaPlayer->GetNeutralKills(),
+			CurrentPlayerSummary->GetTotalTowerKills() + dotaPlayer->GetTowerKills(), CurrentPlayerSummary->GetTotalRaxKills() + dotaPlayer->GetRaxKills(), CurrentPlayerSummary->GetTotalCourierKills() + dotaPlayer->GetCourierKills(),
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, CurrentPlayerSummary->GetTotalLeaves() + 0, CurrentPlayerSummary->GetTotalPlayedMinutes() + dotaGame->GetMin(), newRating, (newRating > CurrentPlayerSummary->GetRatingPeak()? newRating : CurrentPlayerSummary->GetRatingPeak()),0);
+	
+		string EscServerName = MySQLEscapeString(conn, UpdatedPlayerSummary.GetServer());
+		string EscName = MySQLEscapeString(conn, UpdatedPlayerSummary.GetName());
+		string Query;
+
+		if (!RowExists)
+			Query = "INSERT INTO `dotaplayerstats` (`name`, `servername`, `rating`, `ratingpeak`, `games`, `wins`, `loses`, `kills`, `deaths`, `assists`, `creepkills`, `creepdenies`, `neutralkills`, `towerkills`, `raxkills`, `courierkills`, `leaves`, `playtime`) VALUES ('" + EscName + "', '" + EscServerName + "', " + UTIL_ToString(UpdatedPlayerSummary.GetRating()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetRatingPeak()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalGames()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalWins()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalLosses()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalKills()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalDeaths()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalAssists()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalCreepKills()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalCreepDenies()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalNeutralKills()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalTowerKills()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalRaxKills()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalCourierKills()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalLeaves()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalPlayedMinutes()) + ")";
+		else
+			Query = "UPDATE `dotaplayerstats` SET `rating` = " + UTIL_ToString(UpdatedPlayerSummary.GetRating()) + ", `ratingpeak` = " + UTIL_ToString(UpdatedPlayerSummary.GetRatingPeak()) + ", `games` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalGames()) +", `wins` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalWins()) +", `loses` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalLosses()) +", `kills` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalKills()) +", `deaths` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalDeaths()) +", `assists` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalAssists()) +", `creepkills` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalCreepKills()) +", `creepdenies` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalCreepDenies()) +", `neutralkills` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalNeutralKills()) +", `towerkills` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalTowerKills()) +", `raxkills` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalRaxKills()) +", `courierkills` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalCourierKills()) +", `leaves` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalLeaves()) + ", `playtime` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalPlayedMinutes()) + " WHERE `dotaplayerstats`.`name` = '" + EscName + "' AND `servername` = '" + EscServerName + "'";
+	
+		if (mysql_real_query((MYSQL*)conn, Query.c_str(), Query.size()) != 0)
+			*error = mysql_error((MYSQL*)conn);
+		else
+			if (!RowExists)	
+				RowID = (uint32_t)mysql_insert_id((MYSQL*)conn);
+	}
+	else
+	{
+		//Failed to retrive existing stats
+		*error = SdError;
+	}
+
+	return RowID;
+}
+
+uint32_t MySQLDotAPlayerStatsUpdateTHISTHIS(void* conn, string* error, string serverName, string name, CDBDotAPlayer* dotaPlayer, CDBDotAGame* dotaGame, uint32_t baseRating)
+{
+	uint32_t RowID = 0;
+
+	bool RowExists;
+	string SdError = string();
+	//m_Result = MySQLDotAPlayerSummaryCheck(m_Connection, &m_Error, m_SQLBotID, m_Name);
+	//CDBDotAPlayerSummaryNew *CurrentPlayerSummary = MySQLDotAPlayerSummaryCheckNew(conn, &SdError, name, serverName, "", 0);
+	string forforfor = "form";
+	CDBDotAPlayerSummaryNew* CurrentPlayerSummary = MySQLDotAPlayerSummaryCheckNew(conn, &SdError, name, serverName, forforfor, 0);
+
+	
+
+		uint32_t minGames = 1;
+	//CCallableDotAPlayerSummaryCheckNew* Callable = new CMySQLCallableDotAPlayerSummaryCheckNew(serverName, name, UTIL_ToString(minGames), string(), conn, 0, string(), m_Database, m_User, m_Password, m_Port);
+
+
+	if (SdError.empty())
+	{
+		if (!CurrentPlayerSummary)
+		{
+			RowExists = false;
+			CurrentPlayerSummary = new CDBDotAPlayerSummaryNew(serverName, name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, baseRating, 0, 0);
+		}
+		else
+			RowExists = true;
+
+		bool won = (dotaGame->GetWinner() == 1 && dotaPlayer->GetNewColour() >= 1 && dotaPlayer->GetNewColour() <= 5) || (dotaGame->GetWinner() == 2 && dotaPlayer->GetNewColour() >= 7 && dotaPlayer->GetNewColour() <= 11);	//"' AND ((winner=1 AND dotaplayers.newcolour>=1 AND dotaplayers.newcolour<=5) OR (winner=2 AND dotaplayers.newcolour>=7 AND dotaplayers.newcolour<=11))"
+		bool lost = (dotaGame->GetWinner() == 2 && dotaPlayer->GetNewColour() >= 1 && dotaPlayer->GetNewColour() <= 5) || (dotaGame->GetWinner() == 1 && dotaPlayer->GetNewColour() >= 7 && dotaPlayer->GetNewColour() <= 11); 	//		 ((winner=2 AND dotaplayers.newcolour>=1 AND dotaplayers.newcolour<=5) OR (winner=1 AND dotaplayers.newcolour>=7 AND dotaplayers.newcolour<=11))
+		uint32_t newRating = CurrentPlayerSummary->GetRating() + 0;
+
+		CDBDotAPlayerSummaryNew UpdatedPlayerSummary(CurrentPlayerSummary->GetServer(), CurrentPlayerSummary->GetName(), CurrentPlayerSummary->GetTotalGames() + 1,
+			CurrentPlayerSummary->GetTotalWins() + (won ? 1 : 0), CurrentPlayerSummary->GetTotalLosses() + (lost ? 1 : 0), CurrentPlayerSummary->GetTotalKills() + dotaPlayer->GetKills(), CurrentPlayerSummary->GetTotalDeaths() + dotaPlayer->GetDeaths(),
+			CurrentPlayerSummary->GetTotalCourierKills() + dotaPlayer->GetCreepKills(), CurrentPlayerSummary->GetTotalCreepDenies() + dotaPlayer->GetCreepDenies(), CurrentPlayerSummary->GetTotalAssists() + dotaPlayer->GetAssists(), CurrentPlayerSummary->GetTotalNeutralKills() + dotaPlayer->GetNeutralKills(),
+			CurrentPlayerSummary->GetTotalTowerKills() + dotaPlayer->GetTowerKills(), CurrentPlayerSummary->GetTotalRaxKills() + dotaPlayer->GetRaxKills(), CurrentPlayerSummary->GetTotalCourierKills() + dotaPlayer->GetCourierKills(),
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, CurrentPlayerSummary->GetTotalLeaves() + 0, CurrentPlayerSummary->GetTotalPlayedMinutes() + dotaGame->GetMin(), newRating, (newRating > CurrentPlayerSummary->GetRatingPeak() ? newRating : CurrentPlayerSummary->GetRatingPeak()), 0);
+
+		string EscServerName = MySQLEscapeString(conn, UpdatedPlayerSummary.GetServer());
+		string EscName = MySQLEscapeString(conn, UpdatedPlayerSummary.GetName());
+		string Query;
+
+		if (!RowExists)
+			Query = "INSERT INTO `dotaplayerstats` (`name`, `servername`, `rating`, `ratingpeak`, `games`, `wins`, `loses`, `kills`, `deaths`, `assists`, `creepkills`, `creepdenies`, `neutralkills`, `towerkills`, `raxkills`, `courierkills`, `leaves`, `playtime`) VALUES ('" + EscName + "', '" + EscServerName + "', " + UTIL_ToString(UpdatedPlayerSummary.GetRating()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetRatingPeak()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalGames()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalWins()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalLosses()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalKills()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalDeaths()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalAssists()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalCreepKills()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalCreepDenies()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalNeutralKills()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalTowerKills()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalRaxKills()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalCourierKills()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalLeaves()) + ", " + UTIL_ToString(UpdatedPlayerSummary.GetTotalPlayedMinutes()) + ")";
+		else
+			Query = "UPDATE `dotaplayerstats` SET `rating` = " + UTIL_ToString(UpdatedPlayerSummary.GetRating()) + ", `ratingpeak` = " + UTIL_ToString(UpdatedPlayerSummary.GetRatingPeak()) + ", `games` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalGames()) + ", `wins` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalWins()) + ", `loses` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalLosses()) + ", `kills` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalKills()) + ", `deaths` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalDeaths()) + ", `assists` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalAssists()) + ", `creepkills` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalCreepKills()) + ", `creepdenies` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalCreepDenies()) + ", `neutralkills` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalNeutralKills()) + ", `towerkills` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalTowerKills()) + ", `raxkills` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalRaxKills()) + ", `courierkills` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalCourierKills()) + ", `leaves` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalLeaves()) + ", `playtime` = " + UTIL_ToString(UpdatedPlayerSummary.GetTotalPlayedMinutes()) + " WHERE `dotaplayerstats`.`name` = '" + EscName + "' AND `servername` = '" + EscServerName + "'";
+
+		if (mysql_real_query((MYSQL*)conn, Query.c_str(), Query.size()) != 0)
+			*error = mysql_error((MYSQL*)conn);
+		else
+			if (!RowExists)
+				RowID = (uint32_t)mysql_insert_id((MYSQL*)conn);
+	}
+	else
+	{
+		//Failed to retrive existing stats
+		*error = SdError;
+	}
+
+	return RowID;
 }
 
 ///////////
@@ -1540,6 +1765,16 @@ void CMySQLCallableDotAPlayerSummaryCheckNew :: operator( )()
 	if (m_Error.empty())
 		m_Result = MySQLDotAPlayerSummaryCheckNew(m_Connection, &m_Error, m_Name, m_Server, "it was: m_Formula", m_MinGames);  //mby this is correct!!!!!!!!
 	//m_Result = MySQLDotAPlayerSummaryCheckNew( m_Connection, &m_Error, m_SQLBotID, m_Server,  m_Name, m_MinGames, m_GameState ); //???
+
+	Close();
+}
+
+void CMySQLCallableDotAPlayerStatsUpdate :: operator( )()
+{
+	Init();
+
+	if (m_Error.empty())
+		m_Result = MySQLDotAPlayerStatsUpdate(m_Connection, &m_Error, m_ServerName, m_Name,m_DotAPlayer,m_DotAGame, m_BaseRating);
 
 	Close();
 }
@@ -1573,5 +1808,17 @@ CCallableDotAPlayerSummaryCheckNew* CGHostDBMySQL::ThreadedDotAPlayerSummaryChec
 	return Callable;
 }
 
+CCallableDotAPlayerStatsUpdate* CGHostDBMySQL::ThreadedDotAPlayerStatsUpdate(string nServerName, string nName, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating)
+{
+	void* Connection = GetIdleConnection();
+
+	if (!Connection)
+		m_NumConnections++;
+
+	CCallableDotAPlayerStatsUpdate* Callable = new CMySQLCallableDotAPlayerStatsUpdate(nServerName,nName,nDotAPlayer,nDotAGame,nBaseRating, Connection, m_BotID, m_Server, m_Database, m_User, m_Password, m_Port);
+	CreateThread(Callable);
+	m_OutstandingCallables++;
+	return Callable;
+}
 
 #endif

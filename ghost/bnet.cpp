@@ -525,6 +525,8 @@ bool CBNET :: Update( void *fd, void *send_fd )
 
 		uint32_t WaitTicks = 0;
 
+		//Old
+		/*
 		if( m_LastOutPacketSize < 10 )
 			WaitTicks = 1300;
 		else if( m_LastOutPacketSize < 30 )
@@ -535,6 +537,25 @@ bool CBNET :: Update( void *fd, void *send_fd )
 			WaitTicks = 3900;
 		else
 			WaitTicks = 5500;
+		*/
+
+		uint32_t medium = 3200; //3200
+		uint32_t big = 4000;	//4000
+
+		if (m_PasswordHashType == "pvpgn")
+		{
+			medium = 250;	//2000
+			big = 500;		//2500
+		}
+
+		if (m_LastOutPacketSize < 10)
+			WaitTicks = 100; // 1000
+		else if (m_LastOutPacketSize < 100)
+			WaitTicks = medium;
+		else
+			WaitTicks = big;
+
+
 		
 		// add on frequency delay
 		
@@ -2048,6 +2069,50 @@ void CBNET :: BotCommand( string Message, string User, bool Whisper, bool ForceR
 				QueueChatCommand( "WARDEN STATUS --- Not connected to BNLS server.", User, Whisper );
 		}
 
+	}
+	else
+		CONSOLE_Print( "[BNET: " + m_ServerAlias + "] non-admin [" + User + "] sent command [" + Message + "]" );
+
+	/*********************
+	* NON ADMIN COMMANDS *
+	*********************/
+
+	// don't respond to non admins if there are more than 3 messages already in the queue
+	// this prevents malicious users from filling up the bot's chat queue and crippling the bot
+	// in some cases the queue may be full of legitimate messages but we don't really care if the bot ignores one of these commands once in awhile
+	// e.g. when several users join a game at the same time and cause multiple /whois messages to be queued at once
+
+	if( IsAdmin( User ) || IsRootAdmin( User ) || ForceRoot || ( m_PublicCommands && m_OutPackets.size( ) <= 3 ) )
+	{
+		
+		//
+		// !GAMES
+		//
+
+		if (Command == "games")
+		{
+			if (m_GHost->m_Games.size() > 0)
+			{
+				for (vector<CBaseGame*> ::iterator i = m_GHost->m_Games.begin(); i != m_GHost->m_Games.end(); i++)
+				{
+					string reply = "[" + (*i)->GetGameName() + "] ";
+					BYTEARRAY IDs = (*i)->GetPIDs();
+
+					for (BYTEARRAY::iterator i2 = IDs.begin(); i2 != IDs.end(); i2++)
+					{
+						CGamePlayer* plyr = (*i)->GetPlayerFromPID(*i2);
+						reply += plyr->GetName() + " ";
+					}
+
+					QueueChatCommand(reply, User, Whisper);
+				}
+			}
+			else
+			{
+				QueueChatCommand("There are no ongoing games.", User, Whisper);
+			}
+		}
+
 		//
 		// !LOBBIES
 		//
@@ -2080,52 +2145,10 @@ void CBNET :: BotCommand( string Message, string User, bool Whisper, bool ForceR
 		}
 
 		//
-		// !GAMES
-		//
-
-		else if (Command == "games") 
-		{
-			if (m_GHost->m_Games.size() > 0)
-			{
-				for (vector<CBaseGame*> ::iterator i = m_GHost->m_Games.begin(); i != m_GHost->m_Games.end(); i++)
-				{
-					string reply = "[" + (*i)->GetGameName() + "] ";
-					BYTEARRAY IDs = (*i)->GetPIDs();
-
-					for (BYTEARRAY::iterator i2 = IDs.begin(); i2 != IDs.end(); i2++)
-					{
-						CGamePlayer* plyr = (*i)->GetPlayerFromPID(*i2);
-						reply += plyr->GetName() + " ";
-					}
-
-					QueueChatCommand(reply, User, Whisper);
-				}
-			}
-			else
-			{
-				QueueChatCommand("There are no ongoing games.", User, Whisper);
-			}
-		}
-	}
-	else
-		CONSOLE_Print( "[BNET: " + m_ServerAlias + "] non-admin [" + User + "] sent command [" + Message + "]" );
-
-	/*********************
-	* NON ADMIN COMMANDS *
-	*********************/
-
-	// don't respond to non admins if there are more than 3 messages already in the queue
-	// this prevents malicious users from filling up the bot's chat queue and crippling the bot
-	// in some cases the queue may be full of legitimate messages but we don't really care if the bot ignores one of these commands once in awhile
-	// e.g. when several users join a game at the same time and cause multiple /whois messages to be queued at once
-
-	if( IsAdmin( User ) || IsRootAdmin( User ) || ForceRoot || ( m_PublicCommands && m_OutPackets.size( ) <= 3 ) )
-	{
-		//
 		// !STATS
 		//
 
-		if( Command == "stats" )
+		else if( Command == "stats" )
 		{
 			string StatsUser = User;
 

@@ -200,6 +200,7 @@ copy "$(SolutionDir)libmysql.dll" "$(TargetDir)libmysql.dll"</Command>
     <ClCompile Include="config.cpp" />
     <ClCompile Include="crc32.cpp" />
     <ClCompile Include="csvparser.cpp" />
+    <ClCompile Include="elorating.cpp" />
     <ClCompile Include="game.cpp" />
     <ClCompile Include="gameplayer.cpp" />
     <ClCompile Include="gameprotocol.cpp" />
@@ -234,6 +235,7 @@ copy "$(SolutionDir)libmysql.dll" "$(TargetDir)libmysql.dll"</Command>
     <ClInclude Include="config.h" />
     <ClInclude Include="crc32.h" />
     <ClInclude Include="csvparser.h" />
+    <ClInclude Include="elorating.h" />
     <ClInclude Include="game.h" />
     <ClInclude Include="gameplayer.h" />
     <ClInclude Include="gameprotocol.h" />
@@ -261,6 +263,9 @@ copy "$(SolutionDir)libmysql.dll" "$(TargetDir)libmysql.dll"</Command>
     <ClInclude Include="statsdota.h" />
     <ClInclude Include="statsw3mmd.h" />
     <ClInclude Include="util.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="iccup.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

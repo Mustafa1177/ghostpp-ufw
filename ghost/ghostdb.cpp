@@ -637,7 +637,7 @@ CDBDotAPlayerSummaryNew::CDBDotAPlayerSummaryNew(string nServer, string nName, u
 	double nWinsPerGame, double nLossesPerGame,
 	double nKillsPerGame, double nDeathsPerGame, double nCreepKillsPerGame, double nCreepDeniesPerGame,
 	double nAssistsPerGame, double nNeutralKillsPerGame, double nScore, double nTowerKillsPerGame, double nRaxKillsPerGame, double nCourierKillsPerGame, uint32_t nRank,
-	uint32_t nTotalLeaves, uint32_t nTotalPlayedMinutes, uint32_t nRating, uint32_t nRatingPeak)
+	uint32_t nTotalLeaves, uint32_t nTotalPlayedMinutes, uint32_t nRating, uint32_t nRatingPeak, double nLeavesPerGame)
 {
 	m_Server = nServer;
 	m_Name = nName;
@@ -671,9 +671,13 @@ CDBDotAPlayerSummaryNew::CDBDotAPlayerSummaryNew(string nServer, string nName, u
 	m_TotalPlayedMinutes = nTotalPlayedMinutes;
 	m_Rating = nRating;
 	m_RatingPeak = nRatingPeak;
+	m_LeavesPerGame = nLeavesPerGame;
 }
 
-
+CDBDotAPlayerSummaryNew* CGHostDB::DotAPlayerSummaryCheckNew(string name) //just added recently (probably forgotten)
+{
+	return NULL;
+}
 
 //
 // CGHostDB
@@ -689,10 +693,17 @@ CCallableDotAPlayerSummaryCheckNew* CGHostDB::ThreadedDotAPlayerSummaryCheckNew(
 	return NULL;
 }
 
+CCallableDotAPlayerStatsUpdate* CGHostDB::ThreadedDotAPlayerStatsUpdate(string nServerName, string nName, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating)
+{
+	return NULL;
+}
+
 CDBDotAPlayerSummaryNew :: ~CDBDotAPlayerSummaryNew()
 {
 
 }
+
+
 
 CCallableDotAPlayerAddNew :: ~CCallableDotAPlayerAddNew()
 {
@@ -709,5 +720,7 @@ CCallableDotAPlayerSummaryCheckNew :: ~CCallableDotAPlayerSummaryCheckNew()
 	delete m_Result;
 }
 
-
-
+CCallableDotAPlayerStatsUpdate :: ~CCallableDotAPlayerStatsUpdate()
+{
+	//do we free something here??
+}
