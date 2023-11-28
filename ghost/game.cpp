@@ -86,9 +86,11 @@ CGame :: CGame( CGHost *nGHost, CMap *nMap, CSaveGame *nSaveGame, uint16_t nHost
 		m_Stats = new CStatsW3MMD( this, m_Map->GetMapStatsW3MMDCategory( ) );
 	else if( m_Map->GetMapType( ) == "dota" )
 		m_Stats = new CStatsDOTA( this );
-	TestDotaSubmit(nGHost, m_GHost->m_DB, 111);
 
 	m_GameLoadedTime = 0;
+
+	if (m_GHost->m_LiveDBCurrentGamesUpdateEnabled)
+		UpdateCurrentGameLiveDBInfo(0);
 }
 
 CGame :: ~CGame( )
@@ -142,6 +144,10 @@ CGame :: ~CGame( )
 		m_CallableGameAdd = NULL;
 	}
 
+	//Delete game from current games in db
+	if (m_GHost->m_LiveDBCurrentGamesUpdateEnabled)
+		UpdateCurrentGameLiveDBInfo(1);
+
 	for( vector<PairedBanCheck> :: iterator i = m_PairedBanChecks.begin( ); i != m_PairedBanChecks.end( ); ++i )
 		m_GHost->m_Callables.push_back( i->second );
 
@@ -156,6 +162,12 @@ CGame :: ~CGame( )
 
 	for (vector<PairedDPSCheckNew> ::iterator i = m_PairedDPSChecksNew.begin(); i != m_PairedDPSChecksNew.end(); i++)
 		m_GHost->m_Callables.push_back(i->second);
+
+	for (vector<PairedDTopPlayersQuery> ::iterator i = m_PairedDTopPlayersQueries.begin(); i != m_PairedDTopPlayersQueries.end(); ++i)
+		m_GHost->m_Callables.push_back(i->second);
+
+	for (vector<CCallableCurrentGameUpdate*> ::iterator i = m_CurrentGameInfoUpdate.begin(); i != m_CurrentGameInfoUpdate.end(); ++i)
+		m_GHost->m_Callables.push_back(*i);
 
 	callablesLock.unlock( );
 
@@ -366,9 +378,9 @@ bool CGame :: Update( void *fd, void *send_fd )
 						RankS = RankS + "/" + UTIL_ToString(scorescount);
 
 					string SummaryMsg1 = "[" + i->second->GetName() + "] PSR: " + UTIL_ToString(DotAPlayerSummary->GetRating()) + " Games: " + UTIL_ToString(DotAPlayerSummary->GetTotalGames()) +
-						" (W/L: " + UTIL_ToString(DotAPlayerSummary->GetTotalWins()) + "/" + UTIL_ToString(DotAPlayerSummary->GetTotalLosses()) + ") Leave: " + UTIL_ToString(DotAPlayerSummary->GetLeavePercent() * 100,0) + "% WR: " + UTIL_ToString(DotAPlayerSummary->GetWinsPerGame(), 0) + "%";					
-					string SummaryMsg2 = "Hero KDA: " + UTIL_ToString(DotAPlayerSummary->GetAvgKills(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgDeaths(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgAssists(), 2) +
-						" Creep KDN: " + UTIL_ToString(DotAPlayerSummary->GetAvgCreepKills(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgCreepDenies(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgNeutralKills(), 2);
+						" (W/L: " + UTIL_ToString(DotAPlayerSummary->GetTotalWins()) + "/" + UTIL_ToString(DotAPlayerSummary->GetTotalLosses()) + ") Leave: " + UTIL_ToString(DotAPlayerSummary->GetLeavePercent() * 100,0) + "% WR: " + UTIL_ToString(DotAPlayerSummary->GetWinsPerGame(), 0) + "%" + "  PT: " + UTIL_ToString((float_t)DotAPlayerSummary->GetTotalPlayedMinutes() / 60, 1) + "hr";
+					string SummaryMsg2 = "Hero KDA: " + UTIL_ToString(DotAPlayerSummary->GetKillsPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetDeathsPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAssistsPerGame(), 2) +
+						" Creep KDN: " + UTIL_ToString(DotAPlayerSummary->GetCreepKillsPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetCreepDeniesPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetNeutralKillsPerGame(), 2);
 
 					if (!Whisper) 
 					{
@@ -388,15 +400,25 @@ bool CGame :: Update( void *fd, void *send_fd )
 				}
 				else
 				{
-					SendAllChat(m_GHost->m_Language->HasntPlayedDotAGamesWithThisBot(i->second->GetName()));
+					if (!Whisper)
+						SendAllChat(m_GHost->m_Language->HasntPlayedDotAGamesWithThisBot(i->second->GetName()));
+					else
+					{
+						CGamePlayer* Player = GetPlayerFromName(i->first, true);
+						if (Player)
+						{
+							SendChat(Player, m_GHost->m_Language->HasntPlayedDotAGamesWithThisBot(i->second->GetName()));
+						
+						}
+					}
 				}
 			if (!sd)
 				if (DotAPlayerSummary)
 				{
 					string SummaryMsg1 = "[" + i->second->GetName() + "] PSR: " + UTIL_ToString(DotAPlayerSummary->GetRating()) + " Games: " + UTIL_ToString(DotAPlayerSummary->GetTotalGames()) +
-						" (W/L: " + UTIL_ToString(DotAPlayerSummary->GetTotalWins()) + "/" + UTIL_ToString(DotAPlayerSummary->GetTotalLosses()) + ") Leave: " + UTIL_ToString(DotAPlayerSummary->GetLeavePercent(), 0) + "% WR: " + UTIL_ToString(DotAPlayerSummary->GetWinsPerGame() * 100, 0) + "%";
-					string SummaryMsg2 = "Hero KDA: " + UTIL_ToString(DotAPlayerSummary->GetAvgKills(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgDeaths(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgAssists(), 2) +
-						" Creep KDN: " + UTIL_ToString(DotAPlayerSummary->GetAvgCreepKills(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgCreepDenies(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgNeutralKills(), 2);
+						" (W/L: " + UTIL_ToString(DotAPlayerSummary->GetTotalWins()) + "/" + UTIL_ToString(DotAPlayerSummary->GetTotalLosses()) + ") Leave: " + UTIL_ToString(DotAPlayerSummary->GetLeavePercent(), 0) + "% WR: " + UTIL_ToString(DotAPlayerSummary->GetWinsPerGame() * 100, 0) + "%" + "  PT: " + UTIL_ToString((float_t)DotAPlayerSummary->GetTotalPlayedMinutes() / 60, 1) + "hr";
+					string SummaryMsg2 = "Hero KDA: " + UTIL_ToString(DotAPlayerSummary->GetKillsPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetDeathsPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAssistsPerGame(), 2) +
+						" Creep KDN: " + UTIL_ToString(DotAPlayerSummary->GetCreepKillsPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetCreepDeniesPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetNeutralKillsPerGame(), 2);
 
 					if (i->first.empty()) 
 					{
@@ -435,27 +457,89 @@ bool CGame :: Update( void *fd, void *send_fd )
 			i++;
 	}
 
+	for (vector<PairedDTopPlayersQuery> ::iterator i = m_PairedDTopPlayersQueries.begin(); i != m_PairedDTopPlayersQueries.end(); )
+	{
+		if (i->second->GetReady())
+		{
+			CDBDotATopPlayers* TopPlayers = i->second->GetResult();
+
+			if (TopPlayers)
+			{
+				vector<string> ReplyMsgs;
+
+				if (TopPlayers && TopPlayers->GetCount() > 0)
+				{
+					ReplyMsgs.push_back(string("DotA Ladder Top Players: "));
+					string CurrentReplyMsg = string();
+					for (unsigned int n = 0; n < TopPlayers->GetCount(); n++)
+					{
+						if (CurrentReplyMsg.size() > 80)
+						{
+							ReplyMsgs.push_back(CurrentReplyMsg);
+							CurrentReplyMsg = string();
+						}
+						uint32_t SDFF = TopPlayers->GetPlayerRating(n);
+						CurrentReplyMsg += "#" + UTIL_ToString(TopPlayers->GetOffset() + n + 1) + ") " + TopPlayers->GetPlayerName(n) + "(" + UTIL_ToString(TopPlayers->GetPlayerRating(n)) + ")  ";
+					}
+					if(CurrentReplyMsg.size())
+						ReplyMsgs.push_back(CurrentReplyMsg);		
+				}
+				else
+					ReplyMsgs.push_back(string("N/A"));
+	
+				for(vector<string>::iterator msg = ReplyMsgs.begin(); msg != ReplyMsgs.end(); msg++)
+				{
+					if (i->first.empty())
+						SendAllChat(*msg);
+					else
+					{
+						CGamePlayer* Player = GetPlayerFromName(i->first, true);
+
+						if (Player)
+							SendChat(Player, *msg);
+					}
+				}
+			}
+			else
+			{
+				CGamePlayer* Player = GetPlayerFromName(i->first, true);
+
+				if (Player)
+					SendChat(Player, "Could not retrieve DotA ladder top player list");
+			}
+
+			m_GHost->m_DB->RecoverCallable(i->second);
+			delete i->second;
+			i = m_PairedDTopPlayersQueries.erase(i);
+		}
+		else
+			++i;
+	}
+
 	return CBaseGame :: Update( fd, send_fd );
 }
 
 void CGame::EventPlayerJoined(CPotentialPlayer* potential, CIncomingJoinPlayer* joinPlayer)
 {
-	if(!m_Map->GetMapMatchMakingCategory().empty())
+	if( !m_Map->GetMapMatchMakingCategory().empty())
 	{
 		string StatsUser = joinPlayer->GetName();
 		string GameState = string();
 		string m_ScoreMinGames = "1";
-		m_PairedDPSChecksNew.push_back(PairedDPSCheckNew("%", m_GHost->m_DB->ThreadedDotAPlayerSummaryCheckNew(string(), StatsUser, m_ScoreMinGames, GameState)));
-
+		m_PairedDPSChecksNew.push_back(PairedDPSCheckNew(m_AutoDisplayStatsOnJoin? "%" : "%NULL", m_GHost->m_DB->ThreadedDotAPlayerSummaryCheckNew(string(), StatsUser, m_ScoreMinGames, GameState)));
 	}
 
 	CBaseGame::EventPlayerJoined(potential, joinPlayer);
+
+	if (m_GHost->m_LiveDBCurrentGamesUpdateEnabled)
+		UpdateCurrentGameLiveDBInfo(0);
 }
 
 
 // this function is only called when a player leave packet is received, not when there's a socket error, kick, etc...
 void CGame::EventPlayerLeft(CGamePlayer* player, uint32_t reason)
 {
+
 	//we need to add these variables to config!!! --------------------------------------------
 	m_GHost->m_AutoBan = true;							// if we have auto ban on by default or not	
 	m_GHost->m_AutoBanTeamDiffMax = 2;			// if we have more then x number of players more then other team
@@ -600,7 +684,11 @@ void CGame::EventPlayerLeft(CGamePlayer* player, uint32_t reason)
 		// Add player to the temp vector
 		m_AutoBanTemp.push_back(player->GetName());
 	}
+
 	CBaseGame::EventPlayerLeft(player, reason);
+
+	if (m_GHost->m_LiveDBCurrentGamesUpdateEnabled)
+		UpdateCurrentGameLiveDBInfo(0);
 }
 
 void CGame :: EventPlayerDeleted( CGamePlayer *player )
@@ -825,7 +913,7 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 
 			if (!Froms.empty())
 			{
-				if (IsOwner(User) || RootAdminCheck)
+				if (IsOwner(User) || RootAdminCheck || AdminCheck)
 					SendAllChat(Froms);
 				else
 					SendChat(player->GetPID(), Froms);
@@ -839,18 +927,47 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 
 		else if (Command == "owner")
 		{
-			//anyone can be owner as long as the current owner is not in the game
+			//if m_AllowOwnageTakeOver then anyone can be owner as long as the current owner is not in the game
 			string newOwner = string();
-			bool ownerIshere = GetPlayerFromName(m_OwnerName, false);
-			if ((ownerIshere && !RootAdminCheck) && !IsOwner(User))
+
+			if (m_AllowOwnageTakeOver)
 			{
-				newOwner = string(); //do not change owner
+				bool ownerIshere = GetPlayerFromName(m_OwnerName, false);
+				if ((ownerIshere && !RootAdminCheck) && !IsOwner(User))
+				{
+					newOwner = string(); //do not change owner
+				}
+				else if (!ownerIshere || RootAdminCheck || (IsOwner(User)))
+				{
+					if (!Payload.empty())
+					{
+						if (RootAdminCheck || IsOwner(User))
+						{
+							newOwner = Payload;
+							CGamePlayer* LastMatch = NULL;
+							uint32_t Matches = GetPlayerFromNamePartial(Payload, &LastMatch);
+							if (Matches == 1)
+								newOwner = LastMatch->GetName();
+						}
+					}
+					else
+					{
+						if (!IsOwner(User))
+						{
+							newOwner = User;
+						}
+						else
+						{
+							newOwner = string(); //do not change owner
+						}
+					}
+				}
 			}
-			else if (!ownerIshere || RootAdminCheck || (IsOwner(User)))
+			else
 			{
 				if (!Payload.empty())
 				{
-					if (RootAdminCheck || IsOwner(User))
+					if (IsOwner(User) || RootAdminCheck || AdminCheck)
 					{
 						newOwner = Payload;
 						CGamePlayer* LastMatch = NULL;
@@ -859,20 +976,6 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 							newOwner = LastMatch->GetName();
 					}
 				}
-				else
-				{
-					if (!IsOwner(User))
-					{
-						newOwner = User;
-					}
-					else
-					{
-						newOwner = string(); //do not change owner
-					}
-
-				}
-
-
 			}
 
 			if (newOwner.empty())
@@ -918,12 +1021,13 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 
 				if ((*i)->GetNumPings() > 0)
 				{
-					Pings += UTIL_ToString((*i)->GetPing(m_GHost->m_LCPings));
+					uint32_t PlayerPing = (uint32_t)lroundl((double)(*i)->GetPing(m_GHost->m_LCPings) / m_GHost->m_GlobalSpeed);				
+					Pings += UTIL_ToString(PlayerPing);
 
-					if (!m_GameLoading && !m_GameLoaded && !(*i)->GetReserved() && KickPing > 0 && (*i)->GetPing(m_GHost->m_LCPings) > KickPing)
+					if (!m_GameLoading && !m_GameLoaded && !(*i)->GetReserved() && KickPing > 0 && PlayerPing > KickPing)
 					{
 						(*i)->SetDeleteMe(true);
-						(*i)->SetLeftReason("was kicked for excessive ping " + UTIL_ToString((*i)->GetPing(m_GHost->m_LCPings)) + " > " + UTIL_ToString(KickPing));
+						(*i)->SetLeftReason("was kicked for excessive ping " + UTIL_ToString(PlayerPing) + " > " + UTIL_ToString(KickPing));
 						(*i)->SetLeftCode(PLAYERLEAVE_LOBBY);
 						OpenSlot(GetSIDFromPID((*i)->GetPID()), false);
 						Kicked++;
@@ -941,7 +1045,7 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 				{
 					// cut the text into multiple lines ingame
 
-					if (IsOwner(User) || RootAdminCheck)
+					if (IsOwner(User) || RootAdminCheck || AdminCheck)
 						SendAllChat(Pings);
 					else
 						SendChat(player->GetPID(), Pings);
@@ -951,7 +1055,7 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 			}
 
 			if (!Pings.empty()) {
-				if (IsOwner(User) || RootAdminCheck)
+				if (IsOwner(User) || RootAdminCheck || AdminCheck)
 					SendAllChat(Pings);
 				else
 					SendChat(player, Pings);
@@ -959,12 +1063,6 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 
 			if (Kicked > 0)
 				SendAllChat(m_GHost->m_Language->KickingPlayersWithPingsGreaterThan(UTIL_ToString(Kicked), UTIL_ToString(KickPing)));
-
-		}
-
-		else if (command == "tt") 
-		{
-			TestDotaSubmit(m_GHost, m_GHost->m_DB, 111);
 		}
 
 
@@ -972,7 +1070,7 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 
 
 
-	if( player->GetSpoofed( ) && ( AdminCheck || RootAdminCheck || IsOwner( User ) ) )
+	if( player->GetSpoofed( ) && ( AdminCheck || RootAdminCheck ) )
 	{
 		CONSOLE_Print( "[GAME: " + m_GameName + "] admin [" + User + "] sent command [" + Command + "] with payload [" + Payload + "]" );
 
@@ -1059,6 +1157,49 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 			}
 
 			//
+			// !ANNOUNCE
+			//
+
+			else if (Command == "announce" && !m_CountDownStarted)
+			{
+				if (Payload.empty() || Payload == "off")
+				{
+					SendAllChat(m_GHost->m_Language->AnnounceMessageDisabled());
+					SetAnnounce(0, string());
+				}
+				else
+				{
+					// extract the interval and the message
+					// e.g. "30 hello everyone" -> interval: "30", message: "hello everyone"
+
+					uint32_t Interval;
+					string Message;
+					stringstream SS;
+					SS << Payload;
+					SS >> Interval;
+
+					if (SS.fail() || Interval == 0)
+						CONSOLE_Print("[GAME: " + m_GameName + "] bad input #1 to announce command");
+					else
+					{
+						if (SS.eof())
+							CONSOLE_Print("[GAME: " + m_GameName + "] missing input #2 to announce command");
+						else
+						{
+							getline(SS, Message);
+							string::size_type Start = Message.find_first_not_of(" ");
+
+							if (Start != string::npos)
+								Message = Message.substr(Start);
+
+							SendAllChat(m_GHost->m_Language->AnnounceMessageEnabled());
+							SetAnnounce(Interval, Message);
+						}
+					}
+				}
+			}
+
+			//
 			// !BANLAST
 			//
 
@@ -1066,10 +1207,28 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 				m_PairedBanAdds.push_back(PairedBanAdd(User, m_GHost->m_DB->ThreadedBanAdd(m_DBBanLast->GetServer(), m_DBBanLast->GetName(), m_DBBanLast->GetIP(), m_GameName, User, Payload)));
 
 			//
-			// !LOCK
+			// !GS
 			//
 
-			else if (Command == "lock" && (RootAdminCheck || IsOwner(User)))
+			else if (Command == "gs")
+			{
+				if (!Payload.empty())
+				{
+					double arg = UTIL_ToDouble(Payload);
+					if (arg >= 0 && arg <= 64)
+						m_GHost->m_GlobalSpeed = UTIL_ToDouble(Payload);
+
+					SendChat(player, "New value: " + UTIL_ToString(m_GHost->m_GlobalSpeed, 4));
+				}
+				else
+					SendChat(player, "Current value: " + UTIL_ToString(m_GHost->m_GlobalSpeed, 4));
+			}
+
+			//
+			// !LOCKGAME
+			//
+
+			else if (Command == "lockgame")
 			{
 				SendAllChat(m_GHost->m_Language->GameLocked());
 				m_Locked = true;
@@ -1108,10 +1267,10 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 			}
 
 			//
-			// !UNLOCK
+			// !UNLOCKGAME
 			//
 
-			else if (Command == "unlock" && (RootAdminCheck || IsOwner(User)))
+			else if (Command == "unlockgame" && (RootAdminCheck || IsOwner(User)))
 			{
 				SendAllChat(m_GHost->m_Language->GameUnlocked());
 				m_Locked = false;
@@ -1159,7 +1318,7 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 
 
 
-		if (!m_Locked || (RootAdminCheck || (IsOwner(User)) && !m_IsLadderGame))
+		if (!m_Locked || (RootAdminCheck || AdminCheck || (IsOwner(User) && !m_IsLadderGame)))
 		{
 			/*****************************************
 			* ADMIN & NON-LADDER GAME OWNER COMMANDS *
@@ -1450,13 +1609,6 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 			}
 
 			//
-			// !UNHOST
-			//
-
-			else if (Command == "unhost" && !m_CountDownStarted)
-				m_Exiting = true;
-
-			//
 			// !UNMUTE
 			//
 
@@ -1476,13 +1628,12 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 					SendAllChat(m_GHost->m_Language->UnableToMuteFoundMoreThanOneMatch(Payload));
 			}
 
-
-
-
 		} //ADMIN & NON-LADDER GAME OWNER COMMANDS **********************
 
 
-		if( !m_Locked || RootAdminCheck || IsOwner( User ) )
+
+
+		if( !m_Locked || RootAdminCheck || AdminCheck || IsOwner( User ) )
 		{
 			/******************************
 			* ADMIN & GAME OWNER COMMANDS *
@@ -1502,46 +1653,16 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 			}
 
 			//
-			// !ANNOUNCE
+			// !AUTODISPLAYSTATS
 			//
 
-			else if( Command == "announce" && !m_CountDownStarted )
+			if (Command == "autodisplaystats")
 			{
-				if( Payload.empty( ) || Payload == "off" )
-				{
-					SendAllChat( m_GHost->m_Language->AnnounceMessageDisabled( ) );
-					SetAnnounce( 0, string( ) );
-				}
+				m_AutoDisplayStatsOnJoin = !m_AutoDisplayStatsOnJoin;
+				if(m_AutoDisplayStatsOnJoin)
+					SendChat(player, "Auto display stats on join [ON]");
 				else
-				{
-					// extract the interval and the message
-					// e.g. "30 hello everyone" -> interval: "30", message: "hello everyone"
-
-					uint32_t Interval;
-					string Message;
-					stringstream SS;
-					SS << Payload;
-					SS >> Interval;
-
-					if( SS.fail( ) || Interval == 0 )
-						CONSOLE_Print( "[GAME: " + m_GameName + "] bad input #1 to announce command" );
-					else
-					{
-						if( SS.eof( ) )
-							CONSOLE_Print( "[GAME: " + m_GameName + "] missing input #2 to announce command" );
-						else
-						{
-							getline( SS, Message );
-							string :: size_type Start = Message.find_first_not_of( " " );
-
-							if( Start != string :: npos )
-								Message = Message.substr( Start );
-
-							SendAllChat( m_GHost->m_Language->AnnounceMessageEnabled( ) );
-							SetAnnounce( Interval, Message );
-						}
-					}
-				}
+					SendChat(player, "Auto display stats on join [OFF]");
 			}
 
 			//
@@ -1764,32 +1885,22 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 				else
 				{
 					m_Latency = UTIL_ToUInt32( Payload );
-
-					if( m_Latency <= 20 )
+					uint32_t MinLatency = RootAdminCheck ? 5 : 20;
+					uint32_t MaxLatency = RootAdminCheck ? 2000 : 500;
+					if( m_Latency <= MinLatency)
 					{
-						m_Latency = 20;
-						SendAllChat( m_GHost->m_Language->SettingLatencyToMinimum( "20" ) );
+						
+						m_Latency = MinLatency;
+						SendAllChat( m_GHost->m_Language->SettingLatencyToMinimum( UTIL_ToString(MinLatency)) );
 					}
-					else if( m_Latency >= 500 )
+					else if( m_Latency >= MaxLatency)
 					{
-						m_Latency = 500;
-						SendAllChat( m_GHost->m_Language->SettingLatencyToMaximum( "500" ) );
+						m_Latency = MaxLatency;
+						SendAllChat( m_GHost->m_Language->SettingLatencyToMaximum(UTIL_ToString(MaxLatency)) );
 					}
 					else
 						SendAllChat( m_GHost->m_Language->SettingLatencyTo( UTIL_ToString( m_Latency ) ) );
 				}
-			}
-
-			else if (Command == "gs")
-			{
-				if (!Payload.empty())
-				{
-					double arg = UTIL_ToDouble(Payload);
-					if(arg >= 0 && arg <= 64)
-						m_GHost->m_GlobalSpeed = UTIL_ToDouble(Payload);
-					SendChat(player, "New value:" + UTIL_ToString(m_GHost->m_GlobalSpeed, 4));
-				}
-
 			}
 
 			//
@@ -1931,6 +2042,7 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 				else
 					SendAllChat( m_GHost->m_Language->UnableToCreateGameNameTooLong( Payload ) );
 			}
+
 			//
 			// !REFRESH (turn on or off refresh messages)
 			//
@@ -2031,15 +2143,20 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 			{
 				// if the player sent "!start force" skip the checks and start the countdown
 				// otherwise check that the game is ready to start
-
-				if( Payload == "force" )
+				
+				if( Payload == "force" && (RootAdminCheck || AdminCheck || !m_IsLadderGame) )
 					StartCountDown( true );
+				else if (Payload == "now" && (RootAdminCheck || AdminCheck || !m_IsLadderGame))
+				{
+					m_CountDownStarted = true;
+					m_CountDownCounter = 0;
+				}
 				else
 				{
-					if( GetTicks( ) - m_LastPlayerLeaveTicks >= 2000 )
-						StartCountDown( false );
+					if (GetTicks() - m_LastPlayerLeaveTicks >= 2000)
+						StartCountDown(false);
 					else
-						SendAllChat( m_GHost->m_Language->CountDownAbortedSomeoneLeftRecently( ) );
+						SendAllChat(m_GHost->m_Language->CountDownAbortedSomeoneLeftRecently());		
 				}
 			}
 
@@ -2077,7 +2194,7 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 			// !SYNCLIMIT
 			//
 
-			else if( Command == "synclimit" || Command == "sync")
+			else if( Command == "synclimit" || Command == "sync" || Command == "s")
 			{
 				if( Payload.empty( ) )
 					SendAllChat( m_GHost->m_Language->SyncLimitIs( UTIL_ToString( m_SyncLimit ) ) );
@@ -2099,6 +2216,17 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 						SendAllChat( m_GHost->m_Language->SettingSyncLimitTo( UTIL_ToString( m_SyncLimit ) ) );
 				}
 			}
+
+			//
+			// !UNHOST
+			//
+
+			else if (Command == "unhost" && !m_CountDownStarted)
+			{
+				//if (GetCreatorName() == User || RootAdminCheck)
+					m_Exiting = true;
+			}
+				
 
 			//
 			// !UNMUTEALL
@@ -2136,6 +2264,9 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 			CONSOLE_Print( "[GAME: " + m_GameName + "] non-admin [" + User + "] sent command [" + Command + "] with payload [" + Payload + "]" );
 	}
 
+
+
+
 	/*********************
 	* NON ADMIN COMMANDS *
 	*********************/
@@ -2167,7 +2298,7 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 
 		string reply = string();
 		uint32_t Kicked = 0;
-		int baseRating = 1500;
+		int baseRating = m_MapDefaultPlayerScore;
 		int maxAllowedRating = +9999;
 		int minAllowedRating = -9999;
 
@@ -2190,7 +2321,7 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 			}
 			else
 			{
-				playerRating = 1500;
+				playerRating = m_MapDefaultPlayerScore;
 				reply += UTIL_ToString(playerRating) + "!) ";
 			}
 
@@ -2214,7 +2345,7 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 			*/
 		}
 
-		if (IsOwner(User) || RootAdminCheck)
+		if (IsOwner(User) || RootAdminCheck || AdminCheck)
 			SendAllChat(reply);
 		else
 			SendChat(player->GetPID(), reply);
@@ -2250,7 +2381,7 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 		if (!RUser.empty())
 		{
 			bool nonadmin = !((player->GetSpoofed() && AdminCheck) || RootAdminCheck || IsOwner(User));
-			CGamePlayer* Player = GetPlayerFromName(User, true);
+			CGamePlayer* Player = GetPlayerFromName(RUser, true);
 			if (Player)
 			{
 				unsigned char PlayerTeam;
@@ -2266,7 +2397,7 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 						{
 							unsigned char EnemyTeam = PlayerTeam == 0 ? 1 : 0;
 							uint32_t PlayerRating = Player->GetDotARating();
-							uint32_t OpponentRaing = CalcTeamAvgRating(EnemyTeam, m_Players, this, m_Slots, m_Map->GetMapDefaultPlayerScore());
+							uint32_t OpponentRaing = CalcTeamAvgRating(EnemyTeam, m_Players, this, m_Slots, m_MapDefaultPlayerScore);
 							int32_t EloWin = 0;
 							int32_t EloLoss = 0;
 							CalculateEloRatingChange(PlayerRating, OpponentRaing, &EloWin, &EloLoss);
@@ -2307,7 +2438,7 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 					{
 						uint32_t Rating = (*i)->GetDotARating();
 						if (Rating < -99999.0)
-							Rating = m_Map->GetMapDefaultPlayerScore();
+							Rating = m_MapDefaultPlayerScore;
 
 						TeamSizes[Team]++;
 						if (Team == 0)
@@ -2321,10 +2452,10 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 
 		uint32_t AllTeamsRatingSum = Team1RatingSum + Team2RatingSum;
 		AllTeamsRatingSum = AllTeamsRatingSum != 0 ? AllTeamsRatingSum : 1;
-		uint32_t Team1Percentage = roundl((double)Team1RatingSum / (double)AllTeamsRatingSum) * 100;
-		uint32_t Team2Percentage = roundl((double)Team2RatingSum / (double)AllTeamsRatingSum) * 100;
+		uint32_t Team1Percentage = roundl((double)Team1RatingSum / (double)AllTeamsRatingSum * 100) ;
+		uint32_t Team2Percentage = roundl((double)Team2RatingSum / (double)AllTeamsRatingSum * 100) ;
 		string Reply = "Team1: " + UTIL_ToString(Team1RatingSum) + " (" + UTIL_ToString(Team1Percentage) + "%), " + "Team2: " + UTIL_ToString(Team2RatingSum) + " (" + UTIL_ToString(Team2Percentage) + "%)";
-		if (IsOwner(User) || RootAdminCheck)
+		if (IsOwner(User) || RootAdminCheck  || AdminCheck)
 			SendAllChat(Reply);
 		else
 			SendChat(player->GetPID(), Reply);
@@ -2409,20 +2540,20 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 		if (!StatsUser.empty()) 
 		{		
 			bool nonadmin = !((player->GetSpoofed() && AdminCheck) || RootAdminCheck || IsOwner(User));
-			CGamePlayer* Player = GetPlayerFromName(User, true);
+			CGamePlayer* Player = GetPlayerFromName(StatsUser, true);
 			if (Player)
 			{
 				CDBDotAPlayerSummaryNew* DotAPlayerSummary = Player->GetDotASummary();
 				if (DotAPlayerSummary)
 				{
 					string SummaryMsg1 = "[" + DotAPlayerSummary->GetName() + "] PSR: " + UTIL_ToString(DotAPlayerSummary->GetRating()) + " Games: " + UTIL_ToString(DotAPlayerSummary->GetTotalGames()) +
-						" (W/L: " + UTIL_ToString(DotAPlayerSummary->GetTotalWins()) + "/" + UTIL_ToString(DotAPlayerSummary->GetTotalLosses()) + ") Leave: " + UTIL_ToString(DotAPlayerSummary->GetLeavePercent() * 100, 0) + "% WR: " + UTIL_ToString(DotAPlayerSummary->GetWinsPerGame(), 0) + "%";
-					string SummaryMsg2 = "Hero KDA: " + UTIL_ToString(DotAPlayerSummary->GetAvgKills(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgDeaths(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgAssists(), 2) +
-						" Creep KDN: " + UTIL_ToString(DotAPlayerSummary->GetAvgCreepKills(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgCreepDenies(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAvgNeutralKills(), 2);
+						" (W/L: " + UTIL_ToString(DotAPlayerSummary->GetTotalWins()) + "/" + UTIL_ToString(DotAPlayerSummary->GetTotalLosses()) + ") Leave: " + UTIL_ToString(DotAPlayerSummary->GetLeavePercent() * 100, 0) + "% WR: " + UTIL_ToString(DotAPlayerSummary->GetWinsPerGame(), 0) + "%" + "  PT: " + UTIL_ToString((float_t)DotAPlayerSummary->GetTotalPlayedMinutes()/60, 1) + "hr";
+					string SummaryMsg2 = "Hero KDA: " + UTIL_ToString(DotAPlayerSummary->GetKillsPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetDeathsPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAssistsPerGame(), 2) +
+						" Creep KDN: " + UTIL_ToString(DotAPlayerSummary->GetCreepKillsPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetCreepDeniesPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetNeutralKillsPerGame(), 2);
 					if(nonadmin)
 					{
-						SendChat(Player, SummaryMsg1);
-						SendChat(Player, SummaryMsg2);
+						SendChat(player, SummaryMsg1);
+						SendChat(player, SummaryMsg2);
 					}
 					else
 					{
@@ -2447,7 +2578,7 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 	// !SDOLD
 	//
 
-	else if( (Command == "statsdota" || Command == "sdold") && GetTime( ) - player->GetStatsDotASentTime( ) >= 5 )
+	else if( (Command == "statsdota" || Command == "sdold") && GetTime( ) - player->GetStatsDotASentTime( ) >= 3 )
 	{
 		string StatsUser = User;
 
@@ -2460,6 +2591,32 @@ bool CGame :: EventPlayerBotCommand( CGamePlayer *player, string command, string
 			m_PairedDPSChecks.push_back( PairedDPSCheck( User, m_GHost->m_DB->ThreadedDotAPlayerSummaryCheck( StatsUser ) ) );
 
 		player->SetStatsDotASentTime( GetTime( ) );
+	}
+
+	//
+	// !top / !topd
+	//
+
+	else if ((Command == "top" || Command == "topd") && GetTime() >= player->GetStatsDotASentTime() + 1)
+	{
+		uint32_t TopOffset = 0;
+		uint32_t TopCount = 10;	
+
+		if (!Payload.empty())
+		{
+			uint32_t TopPageNum = 0;
+			TopPageNum = UTIL_ToUInt32(Payload);
+			if (TopPageNum <= 0 || TopPageNum > 999)
+				TopPageNum = 0;
+			TopOffset = TopCount * TopPageNum;
+
+		}
+
+		bool nonadmin = !((player->GetSpoofed() && AdminCheck) || RootAdminCheck || IsOwner(User));
+		if (nonadmin)
+			m_PairedDTopPlayersQueries.push_back(PairedDTopPlayersQuery(User, m_GHost->m_DB->ThreadedDotATopPlayersQuery(string(), string("1"), TopOffset, TopCount)));
+		else
+			m_PairedDTopPlayersQueries.push_back(PairedDTopPlayersQuery(string(), m_GHost->m_DB->ThreadedDotATopPlayersQuery(string(), string("1"), TopOffset, TopCount)));
 	}
 
 	//
@@ -2574,6 +2731,35 @@ void CGame :: EventGameStarted( )
 
 	for( vector<CGamePlayer *> :: iterator i = m_Players.begin( ); i != m_Players.end( ); ++i )
 		m_DBBans.push_back( new CDBBan( (*i)->GetJoinedRealm( ), (*i)->GetName( ), (*i)->GetExternalIPString( ), string( ), string( ), string( ), string( ) ) );
+	
+	//New
+	if (true) // m_Map->GetMapType() == "dota"
+	{
+		CStatsDOTA* StatsDotA = dynamic_cast<CStatsDOTA*>(m_Stats);
+		if (StatsDotA) //if (typeid(*m_Stats) == typeid(CStatsDOTA)) {}
+		{
+			StatsDotA->m_TeamsAvgRatings[0] = CalcTeamAvgRating(0, m_Players, this, m_Slots, m_MapDefaultPlayerScore);
+			StatsDotA->m_TeamsAvgRatings[1] = CalcTeamAvgRating(1, m_Players, this, m_Slots, m_MapDefaultPlayerScore);
+
+			for (vector<CGameSlot>::iterator slot = m_Slots.begin(); slot != m_Slots.end(); ++slot)
+			{
+				if (slot->GetSlotStatus() >= 2)
+				{
+					CGamePlayer* plyr = GetPlayerFromPID(slot->GetPID());
+					if (plyr)
+					{
+						char SlotColour = slot->GetColour();
+						if (SlotColour < sizeof(StatsDotA->m_PlayersNames))
+						{
+							StatsDotA->m_PlayersNames[SlotColour] = plyr->GetName();
+							CONSOLE_Print("[GAME: " + m_GameName + "] found DotA player [" + plyr->GetName() + "] with color " + UTIL_ToString(SlotColour));
+						}					
+					}
+				}
+			}
+		}
+	}
+
 }
 
 bool CGame :: IsGameDataSaved( )
@@ -2590,7 +2776,7 @@ void CGame :: SaveGameData( )
 
 //New=============================================
 
-void CBaseGame::ReCalculateTeams()
+void CBaseGame :: ReCalculateTeams()
 {
 	unsigned char sid;
 	unsigned char team;
@@ -2626,7 +2812,7 @@ void CBaseGame::ReCalculateTeams()
 			}
 	}
 
-	if (m_GetMapNumTeams == 2)
+	if (m_MapNumTeams == 2)
 	{
 		if (m_Team1 > m_Team2)
 			m_TeamDiff = m_Team1 - m_Team2;
@@ -2636,4 +2822,34 @@ void CBaseGame::ReCalculateTeams()
 
 }
 
+void CGame :: UpdateCurrentGameLiveDBInfo( unsigned char action )
+{
+	if (action != 1)
+	{
+		string Exp = string();
+		string Create = string();
+		string Start = string();
+		time_t t;
+		char cstr[128];
 
+		m_LastCurrentGameLiveUpdateTime = GetTime();
+
+		t = time(nullptr) + 31 * 60;
+		strftime(cstr, sizeof(cstr), "%Y-%m-%d %H:%M:%S", std::gmtime(&t));
+		Exp = cstr;
+
+		t = time(nullptr) - (GetTime() - m_CreationTime);
+		strftime(cstr, sizeof(cstr), "%Y-%m-%d %H:%M:%S", std::gmtime(&t));
+		Create = cstr;
+
+		t = time(nullptr) - (GetTime() - m_GameLoadedTime);
+		strftime(cstr, sizeof(cstr), "%Y-%m-%d %H:%M:%S", std::gmtime(&t));
+		Start = cstr;
+
+		m_CurrentGameInfoUpdate.push_back(m_GHost->m_DB->ThreadedCurrentGameUpdate(m_GHost->m_BotID, action, string(), m_CreatorName, m_OwnerName, m_GameName, GetAllPlayersNames(), m_Map->GetMapPath(), Create, Start, Exp, m_GameLoading || m_GameLoaded, m_RandomSeed, false, GetPIDs().size(), m_MapNumPlayers));
+
+	}
+	else
+		m_GHost->m_Callables.push_back(m_GHost->m_DB->ThreadedCurrentGameUpdate(m_GHost->m_BotID, action, string(), string(), string(), string(), string(), string(), string(), string(), string(), true, m_RandomSeed, false, 0, 0));
+
+}

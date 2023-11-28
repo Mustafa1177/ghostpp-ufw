@@ -674,10 +674,67 @@ CDBDotAPlayerSummaryNew::CDBDotAPlayerSummaryNew(string nServer, string nName, u
 	m_LeavesPerGame = nLeavesPerGame;
 }
 
+//
+// CDBDotATopPlayers
+//
+
+CDBDotATopPlayers::CDBDotATopPlayers(unsigned int nSize)
+{
+	m_PlayersNames = new string[nSize];
+	m_PlayersRatings = new uint32_t[nSize];
+	m_Size = nSize;
+	m_Count = 0;
+	m_Offset = 0;
+}
+
 CDBDotAPlayerSummaryNew* CGHostDB::DotAPlayerSummaryCheckNew(string name) //just added recently (probably forgotten)
 {
 	return NULL;
 }
+
+CDBDotATopPlayers* CGHostDB::DotAPlayerTopPlayersQuery(string name) //just added recently (probably forgotten)
+{
+	return NULL;
+}
+
+
+//
+// CDBCurrentGame
+//
+
+CDBCurrentGame::CDBCurrentGame()
+{
+	 m_BotID = 0;
+	 m_CreatorName = string();
+	 m_OwnerName = string();
+	 m_GameName = string();
+	 m_Names = string();
+	 m_MapName = string();
+	 m_CreatedAt = time(nullptr);
+	 m_StartedAt = time(nullptr);
+	 m_ExpireDate = time(nullptr);
+	 m_GameStarted = false;
+	 m_GameRandomID = 0;
+	 m_OccupiedSlots = 0;
+	 m_MaxSlots = 0;
+}
+
+
+uint32_t CGHostDB::CurrentGameUpdate(uint32_t nBotID, unsigned char nAction, string nParam, string nCreatorName, string nOwnerName, string nGameName, string nNames, string nMapName, string nCreatedAt, string nStartedAt, string nExpireDate, bool nGameStarted, uint32_t nGameRandomID, bool nClearAll, uint8_t nOccupiedSlots, uint8_t nMaxSlots)
+{
+	return 0;
+}
+
+vector<CDBCurrentGame*> CGHostDB::CurrentGamesQuery(bool includelobbies, bool includestarted, uint32_t queryoffset, uint32_t querylimit, uint32_t& outlobbiescount, uint32_t& outgamescount)
+{
+	vector<CDBCurrentGame*> Res;
+	if(&outlobbiescount)
+		outlobbiescount = 0;
+	if (&outgamescount)
+		outgamescount = 0;
+	return Res;
+}
+
 
 //
 // CGHostDB
@@ -693,7 +750,22 @@ CCallableDotAPlayerSummaryCheckNew* CGHostDB::ThreadedDotAPlayerSummaryCheckNew(
 	return NULL;
 }
 
-CCallableDotAPlayerStatsUpdate* CGHostDB::ThreadedDotAPlayerStatsUpdate(string nServerName, string nName, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating)
+CCallableDotAPlayerStatsUpdate* CGHostDB::ThreadedDotAPlayerStatsUpdate(string nServerName, string nName, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating, uint32_t nOpponentAvgRaing)
+{
+	return NULL;
+}
+
+CCallableDotATopPlayersQuery* CGHostDB::ThreadedDotATopPlayersQuery(string server, string mingames, uint32_t offset, uint32_t count)
+{
+	return NULL;
+}
+
+CCallableCurrentGameUpdate* CGHostDB::ThreadedCurrentGameUpdate(uint32_t nBotID, unsigned char nAction, string nParam, string nCreatorName, string nOwnerName, string nGameName, string nNames, string nMapName, string nCreatedAt, string nStartedAt, string nExpireDate, bool nGameStarted, uint32_t nGameRandomID, bool nClearAll, uint8_t nOccupiedSlots, uint8_t nMaxSlots)
+{
+	return NULL;
+}
+
+CCallableCurrentGamesQuery* CGHostDB::ThreadedCurrentGamesQuery(bool includelobbies, bool includestarted, uint32_t queryoffset, uint32_t querylimit)
 {
 	return NULL;
 }
@@ -703,13 +775,22 @@ CDBDotAPlayerSummaryNew :: ~CDBDotAPlayerSummaryNew()
 
 }
 
+CDBDotATopPlayers :: ~CDBDotATopPlayers()
+{
+	delete[] m_PlayersNames;
+	delete[] m_PlayersRatings;
+	//was that necessary?
+}
 
+CDBCurrentGame :: ~CDBCurrentGame()
+{
+
+}
 
 CCallableDotAPlayerAddNew :: ~CCallableDotAPlayerAddNew()
 {
 
 }
-
 
 //
 // Callables
@@ -723,4 +804,20 @@ CCallableDotAPlayerSummaryCheckNew :: ~CCallableDotAPlayerSummaryCheckNew()
 CCallableDotAPlayerStatsUpdate :: ~CCallableDotAPlayerStatsUpdate()
 {
 	//do we free something here??
+}
+
+CCallableDotATopPlayersQuery :: ~CCallableDotATopPlayersQuery()
+{
+	delete m_Result;
+}
+
+CCallableCurrentGameUpdate :: ~CCallableCurrentGameUpdate()
+{
+	
+}
+
+CCallableCurrentGamesQuery :: ~CCallableCurrentGamesQuery()
+{
+	for (vector<CDBCurrentGame*> ::iterator i = m_Result.begin(); i != m_Result.end(); ++i)
+		delete* i;
 }

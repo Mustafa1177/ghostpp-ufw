@@ -215,9 +215,13 @@ public:
 	//New
 	virtual CCallableDotAPlayerAddNew* ThreadedDotAPlayerAddNew(uint32_t gameid, uint32_t colour, uint32_t kills, uint32_t deaths, uint32_t creepkills, uint32_t creepdenies, uint32_t assists, uint32_t gold, uint32_t neutralkills, string item1, string item2, string item3, string item4, string item5, string item6, string hero, uint32_t newcolour, uint32_t towerkills, uint32_t raxkills, uint32_t courierkills);
 	virtual CCallableDotAPlayerSummaryCheckNew* ThreadedDotAPlayerSummaryCheckNew(string servername, string name, string mingames, string gamestate);
+	virtual CCallableDotATopPlayersQuery* ThreadedDotATopPlayersQuery(string server, string mingames, uint32_t offset, uint32_t count);
 	//					delete this:	  CMySQLCallableDotAPlayerSummaryCheckNew( string nServer, string nName, string nMinGames, string nGameState,
-	virtual CCallableDotAPlayerStatsUpdate* ThreadedDotAPlayerStatsUpdate(string nServerName, string nName, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating);
+	virtual CCallableDotAPlayerStatsUpdate* ThreadedDotAPlayerStatsUpdate(string nServerName, string nName, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating, uint32_t nOpponentAvgRaing);
 												//(void* conn, string* error, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating);
+	virtual CCallableCurrentGameUpdate* ThreadedCurrentGameUpdate(uint32_t nBotID, unsigned char nAction, string nParam, string nCreatorName, string nOwnerName, string nGameName, string nNames, string nMapName, string nCreatedAt, string nStartedAt, string nExpireDate, bool nGameStarted, uint32_t nGameRandomID, bool nClearAll, uint8_t nOccupiedSlots, uint8_t nMaxSlots);
+	virtual CCallableCurrentGamesQuery* ThreadedCurrentGamesQuery(bool includelobbies, bool includestarted, uint32_t queryoffset, uint32_t querylimit);
+
 	// 
 	// other database functions
 
@@ -255,7 +259,9 @@ bool MySQLW3MMDVarAdd( void *conn, string *error, uint32_t botid, uint32_t gamei
 uint32_t MySQLDotAPlayerAddNew(void* conn, string* error, uint32_t botid, uint32_t gameid, uint32_t colour, uint32_t kills, uint32_t deaths, uint32_t creepkills, uint32_t creepdenies, uint32_t assists, uint32_t gold, uint32_t neutralkills, string item1, string item2, string item3, string item4, string item5, string item6, string hero, uint32_t newcolour, uint32_t towerkills, uint32_t raxkills, uint32_t courierkills);
 //CDBDotAPlayerSummaryNew *MySQLDotAPlayerSummaryCheckNew( void *conn, string *error, uint32_t botid, string servername, string name, string mingames, string gamestate );
 CDBDotAPlayerSummaryNew* MySQLDotAPlayerSummaryCheckNew(void* conn, string* error, string name, string servername, string formula, string mingames);
-uint32_t MySQLDotAPlayerStatsUpdate(void* conn, string* error, string nServerName, string nName, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating);
+CDBDotATopPlayers* MySQLTopPlayersQuery(void* conn, string* error, uint32_t botid, string server, uint32_t offset, uint32_t count);
+uint32_t MySQLDotAPlayerStatsUpdate(void* conn, string* error, string nServerName, string nName, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating, uint32_t opponentAvgRaing);
+uint32_t MySQLCurrentGameUpdate(void* conn, string* error, uint32_t nBotID, unsigned char nAction, string nParam, string nCreatorName, string nOwnerName, string nGameName, string nNames, string nMapName, string nCreatedAt, string nStartedAt, string nExpireDate, bool nGameStarted, uint32_t nGameRandomID, bool nClearAll, uint8_t nOccupiedSlots, uint8_t oMaxSlots);
 
 //
 // MySQL Callables
@@ -524,7 +530,7 @@ public: //incomplete
 class CMySQLCallableDotAPlayerStatsUpdate : public CCallableDotAPlayerStatsUpdate, public CMySQLCallable
 {
 public:
-	CMySQLCallableDotAPlayerStatsUpdate(string nServerName, string nName, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating, void* nConnection, uint32_t nSQLBotID, string nSQLServer, string nSQLDatabase, string nSQLUser, string nSQLPassword, uint16_t nSQLPort) : CBaseCallable(), CCallableDotAPlayerStatsUpdate(nServerName,nName,nDotAPlayer,nDotAGame,nBaseRating), CMySQLCallable(nConnection, nSQLBotID, nSQLServer, nSQLDatabase, nSQLUser, nSQLPassword, nSQLPort) { }
+	CMySQLCallableDotAPlayerStatsUpdate(string nServerName, string nName, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating, uint32_t nOpponentAvgRaing, void* nConnection, uint32_t nSQLBotID, string nSQLServer, string nSQLDatabase, string nSQLUser, string nSQLPassword, uint16_t nSQLPort) : CBaseCallable(), CCallableDotAPlayerStatsUpdate(nServerName,nName,nDotAPlayer,nDotAGame,nBaseRating,nOpponentAvgRaing), CMySQLCallable(nConnection, nSQLBotID, nSQLServer, nSQLDatabase, nSQLUser, nSQLPassword, nSQLPort) { }
 
 	virtual ~CMySQLCallableDotAPlayerStatsUpdate() { }
 
@@ -538,6 +544,41 @@ class CMySQLCallableDotAPlayerSummaryCheckNew : public CCallableDotAPlayerSummar
 public:
 	CMySQLCallableDotAPlayerSummaryCheckNew(string nServer, string nName, string nMinGames, string nGameState, void* nConnection, uint32_t nSQLBotID, string nSQLServer, string nSQLDatabase, string nSQLUser, string nSQLPassword, uint16_t nSQLPort) : CBaseCallable(), CCallableDotAPlayerSummaryCheckNew(nServer, nName, nMinGames, nGameState), CMySQLCallable(nConnection, nSQLBotID, nSQLServer, nSQLDatabase, nSQLUser, nSQLPassword, nSQLPort) { }
 	virtual ~CMySQLCallableDotAPlayerSummaryCheckNew() { }
+
+	virtual void operator( )();
+	virtual void Init() { CMySQLCallable::Init(); }
+	virtual void Close() { CMySQLCallable::Close(); }
+};
+
+class CMySQLCallableDotATopPlayersQuery : public CCallableDotATopPlayersQuery, public CMySQLCallable
+{
+public:
+	CMySQLCallableDotATopPlayersQuery(string nServer, string nMingames, uint32_t nOffset, uint32_t nCount, void* nConnection, uint32_t nSQLBotID, string nSQLServer, string nSQLDatabase, string nSQLUser, string nSQLPassword, uint16_t nSQLPort) : CBaseCallable(), CCallableDotATopPlayersQuery(nServer, nMingames, nOffset, nCount), CMySQLCallable(nConnection, nSQLBotID, nSQLServer, nSQLDatabase, nSQLUser, nSQLPassword, nSQLPort) { }
+	virtual ~CMySQLCallableDotATopPlayersQuery() { }
+
+	virtual void operator( )();
+	virtual void Init() { CMySQLCallable::Init(); }
+	virtual void Close() { CMySQLCallable::Close(); }
+};
+
+class CMySQLCallableCurrentGameUpdate : public CCallableCurrentGameUpdate, public CMySQLCallable
+{
+public:
+	CMySQLCallableCurrentGameUpdate(uint32_t nBotID, unsigned char nAction, string nParam, string nCreatorName, string nOwnerName, string nGameName, string nNames, string nMapName, string nCreatedAt, string nStartedAt, string nExpireDate, bool nGameStarted, uint32_t nGameRandomID, bool nClearAll, uint8_t nOccupiedSlots, uint8_t nMaxSlots, void* nConnection, uint32_t nSQLBotID, string nSQLServer, string nSQLDatabase, string nSQLUser, string nSQLPassword, uint16_t nSQLPort) : CBaseCallable(), CCallableCurrentGameUpdate(nBotID, nAction, nParam, nCreatorName, nOwnerName, nGameName, nNames, nMapName, nCreatedAt, nStartedAt, nExpireDate, nGameStarted, nGameRandomID, nClearAll, nOccupiedSlots, nMaxSlots), CMySQLCallable(nConnection, nSQLBotID, nSQLServer, nSQLDatabase, nSQLUser, nSQLPassword, nSQLPort) { }
+
+	virtual ~CMySQLCallableCurrentGameUpdate() { }
+
+	virtual void operator( )();
+	virtual void Init() { CMySQLCallable::Init(); }
+	virtual void Close() { CMySQLCallable::Close(); }
+};
+
+class CMySQLCallableCurrentGamesQuery : public CCallableCurrentGamesQuery, public CMySQLCallable
+{
+public:
+	CMySQLCallableCurrentGamesQuery(bool nIncludeLobbies, bool nIncludeStarted, uint32_t nQueryOffset, uint32_t nQueryLimit, void* nConnection, uint32_t nSQLBotID, string nSQLServer, string nSQLDatabase, string nSQLUser, string nSQLPassword, uint16_t nSQLPort) : CBaseCallable(), CCallableCurrentGamesQuery(nIncludeLobbies, nIncludeStarted, nQueryOffset, nQueryLimit), CMySQLCallable(nConnection, nSQLBotID, nSQLServer, nSQLDatabase, nSQLUser, nSQLPassword, nSQLPort) { }
+
+	virtual ~CMySQLCallableCurrentGamesQuery() { }
 
 	virtual void operator( )();
 	virtual void Init() { CMySQLCallable::Init(); }

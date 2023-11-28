@@ -35,8 +35,12 @@ CStatsDOTA :: CStatsDOTA( CBaseGame *nGame ) : CStats( nGame ), m_Winner( 0 ), m
 {
 	CONSOLE_Print( "[STATSDOTA] using dota stats" );
 
-	for( unsigned int i = 0; i < 12; ++i )
+	for (unsigned int i = 0; i < 12; ++i)
+	{
 		m_Players[i] = NULL;
+		m_PlayersNames[i] = string();
+	}
+		
 }
 
 CStatsDOTA :: ~CStatsDOTA( )
@@ -420,14 +424,15 @@ void CStatsDOTA :: Save( CGHost *GHost, CGHostDB *DB, uint32_t GameID )
 			if( m_Players[i] )
 			{
 				CGamePlayer* Player = m_Game->GetPlayerFromColour(m_Players[i]->GetColour());
-				if (Player)
-				{ //New
-					CONSOLE_Print("[STATSDOTANEW!: " + m_Game->GetGameName() + "] saving " + UTIL_ToString(Players) + " players");
-					CDBDotAGame *DotaGame = new CDBDotAGame(0, 0, m_Winner, m_Min, m_Sec);
-					GHost->m_Callables.push_back(DB->ThreadedDotAPlayerStatsUpdate(string(), Player->GetName(), m_Players[i], DotaGame, 1500)); //Player->GetSpoofedRealm() should be the entered as servername param
+				if (!empty(m_PlayersNames[i]))
+				{
+					CONSOLE_Print("[STATSDOTANEW!: " + m_Game->GetGameName() + "] saving [" + m_PlayersNames[i] + "] color " + UTIL_ToString(m_Players[i]->GetNewColour()));
+					//Copy data because it's possible that they will get deleted from memory before getting submitted.
+					CDBDotAGame* DotaGame = new CDBDotAGame(0, 0, m_Winner, m_Min, m_Sec);
+					CDBDotAPlayer *DotaPlayer = new CDBDotAPlayer(0, m_Players[i]->GetGameID(), m_Players[i]->GetColour(), m_Players[i]->GetKills(), m_Players[i]->GetDeaths(), m_Players[i]->GetCreepKills(), m_Players[i]->GetCreepDenies(), m_Players[i]->GetAssists(), m_Players[i]->GetGold(), m_Players[i]->GetNeutralKills(), m_Players[i]->GetItem(0), m_Players[i]->GetItem(1), m_Players[i]->GetItem(2), m_Players[i]->GetItem(3), m_Players[i]->GetItem(4), m_Players[i]->GetItem(5), m_Players[i]->GetHero(), m_Players[i]->GetNewColour(), m_Players[i]->GetTowerKills(), m_Players[i]->GetRaxKills(), m_Players[i]->GetCourierKills());
+					GHost->m_Callables.push_back(DB->ThreadedDotAPlayerStatsUpdate(string(), m_PlayersNames[i], DotaPlayer, DotaGame, 1500, m_Players[i]->GetNewColour() > 5 ? m_TeamsAvgRatings[0] : m_TeamsAvgRatings[1])); //Player->GetSpoofedRealm() should be the entered as servername param
 				}
-				GHost->m_Callables.push_back( DB->ThreadedDotAPlayerAdd( GameID, m_Players[i]->GetColour( ), m_Players[i]->GetKills( ), m_Players[i]->GetDeaths( ), m_Players[i]->GetCreepKills( ), m_Players[i]->GetCreepDenies( ), m_Players[i]->GetAssists( ), m_Players[i]->GetGold( ), m_Players[i]->GetNeutralKills( ), m_Players[i]->GetItem( 0 ), m_Players[i]->GetItem( 1 ), m_Players[i]->GetItem( 2 ), m_Players[i]->GetItem( 3 ), m_Players[i]->GetItem( 4 ), m_Players[i]->GetItem( 5 ), m_Players[i]->GetHero( ), m_Players[i]->GetNewColour( ), m_Players[i]->GetTowerKills( ), m_Players[i]->GetRaxKills( ), m_Players[i]->GetCourierKills( ) ) );
-				
+				GHost->m_Callables.push_back( DB->ThreadedDotAPlayerAdd( GameID, m_Players[i]->GetColour( ), m_Players[i]->GetKills( ), m_Players[i]->GetDeaths( ), m_Players[i]->GetCreepKills( ), m_Players[i]->GetCreepDenies( ), m_Players[i]->GetAssists( ), m_Players[i]->GetGold( ), m_Players[i]->GetNeutralKills( ), m_Players[i]->GetItem( 0 ), m_Players[i]->GetItem( 1 ), m_Players[i]->GetItem( 2 ), m_Players[i]->GetItem( 3 ), m_Players[i]->GetItem( 4 ), m_Players[i]->GetItem( 5 ), m_Players[i]->GetHero( ), m_Players[i]->GetNewColour( ), m_Players[i]->GetTowerKills( ), m_Players[i]->GetRaxKills( ), m_Players[i]->GetCourierKills( ) ) );			
 				++Players;
 			}
 		}

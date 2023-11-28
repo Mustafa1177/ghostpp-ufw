@@ -43,7 +43,10 @@ class CCallableDotAGameAdd;
 class CCallableDotAPlayerAdd;
 class CCallableDotAPlayerSummaryCheck;
 class CCallableDotAPlayerSummaryCheckNew;	//New
+class CCallableDotATopPlayersQuery;			//New
 class CCallableDotAPlayerStatsUpdate;		//New
+class CCallableCurrentGameUpdate;			//New
+class CCallableCurrentGamesQuery;			//New
 class CCallableDownloadAdd;
 class CCallableScoreCheck;
 class CCallableW3MMDPlayerAdd;
@@ -56,6 +59,8 @@ class CDBDotAGame;
 class CDBDotAPlayer;
 class CDBDotAPlayerSummary;
 class CDBDotAPlayerSummaryNew;				//New
+class CDBDotATopPlayers;					//New
+class CDBCurrentGame;						//New
 class CCallableDotAPlayerAddNew;			//New
 
 typedef pair<uint32_t,string> VarP;
@@ -110,6 +115,11 @@ public:
 	virtual bool W3MMDVarAdd( uint32_t gameid, map<VarP,double> var_reals );
 	virtual bool W3MMDVarAdd( uint32_t gameid, map<VarP,string> var_strings );
 	virtual CDBDotAPlayerSummaryNew* DotAPlayerSummaryCheckNew(string name); //New
+	virtual CDBDotATopPlayers* DotAPlayerTopPlayersQuery(string name); //New
+	virtual uint32_t CurrentGameUpdate(uint32_t nBotID, unsigned char nAction, string nParam, string nCreatorName, string nOwnerName, string nGameName, string nNames, string nMapName, string nCreatedAt, string nStartedAt, string nExpireDate, bool nGameStarted, uint32_t nGameRandomID, bool nClearAll, uint8_t nOccupiedSlots, uint8_t nMaxSlots); //New
+	virtual vector<CDBCurrentGame*> CurrentGamesQuery(bool includelobbies, bool includestarted, uint32_t queryoffset, uint32_t querylimit, uint32_t& outlobbiescount, uint32_t& outgamescount);
+
+	//probably StatsUpdate func is missing here, thats why the program crashes when you try to call the inherited func???????? (or not?) <--------------
 
 	// threaded database functions
 
@@ -140,7 +150,10 @@ public:
 	//new
 	virtual CCallableDotAPlayerAddNew* ThreadedDotAPlayerAddNew(uint32_t gameid, uint32_t colour, uint32_t kills, uint32_t deaths, uint32_t creepkills, uint32_t creepdenies, uint32_t assists, uint32_t gold, uint32_t neutralkills, string item1, string item2, string item3, string item4, string item5, string item6, string hero, uint32_t newcolour, uint32_t towerkills, uint32_t raxkills, uint32_t courierkills);
 	virtual CCallableDotAPlayerSummaryCheckNew* ThreadedDotAPlayerSummaryCheckNew(string servername, string name, string mingames, string gamestate);
-	virtual CCallableDotAPlayerStatsUpdate* ThreadedDotAPlayerStatsUpdate(string servername, string name, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating);
+	virtual CCallableDotATopPlayersQuery* ThreadedDotATopPlayersQuery(string server, string mingames, uint32_t offset, uint32_t count);
+	virtual CCallableDotAPlayerStatsUpdate* ThreadedDotAPlayerStatsUpdate(string servername, string name, CDBDotAPlayer* nDotAPlayer, CDBDotAGame* nDotAGame, uint32_t nBaseRating, uint32_t nOpponentAvgRaing);
+	virtual CCallableCurrentGameUpdate* ThreadedCurrentGameUpdate(uint32_t nBotID, unsigned char nAction, string nParam, string nCreatorName, string nOwnerName, string nGameName, string nNames, string nMapName, string nCreatedAt, string nStartedAt, string nExpireDate, bool nGameStarted, uint32_t nGameRandomID, bool nClearAll, uint8_t nOccupiedSlots, uint8_t nMaxSlots);
+	virtual CCallableCurrentGamesQuery* ThreadedCurrentGamesQuery(bool includelobbies, bool includestarted, uint32_t queryoffset, uint32_t querylimit);
 
 };
 
@@ -506,6 +519,52 @@ public:
 	virtual string GetGameState() { return m_GameState; }
 	virtual CDBDotAPlayerSummaryNew* GetResult() { return m_Result; }
 	virtual void SetResult(CDBDotAPlayerSummaryNew* nResult) { m_Result = nResult; }
+};
+
+class CCallableDotATopPlayersQuery : virtual public CBaseCallable
+{
+protected:
+	string m_Server;
+	string m_MinGames;
+	uint32_t m_Offset;
+	uint32_t m_Count;
+	CDBDotATopPlayers* m_Result;
+
+public:
+	CCallableDotATopPlayersQuery(string nServer, string nMinGames, uint32_t nOffset, uint32_t nCount) : CBaseCallable(), m_Server(nServer), m_MinGames(nMinGames), m_Offset(nOffset), m_Count(nCount), m_Result(NULL) { }
+	virtual ~CCallableDotATopPlayersQuery();
+
+	virtual string GetServerName() { return m_Server; }
+	virtual string GetMinGames() { return m_MinGames; }
+	virtual uint32_t GetOffset() { return m_Offset; }
+	virtual uint32_t GetCount() { return m_Count; }
+	virtual CDBDotATopPlayers* GetResult() { return m_Result; }
+	virtual void SetResult(CDBDotATopPlayers* nResult) { m_Result = nResult; }
+};
+
+class CCallableCurrentGamesQuery : virtual public CBaseCallable
+{
+protected:
+	bool m_IncludeLobbies;
+	bool m_IncludeStarted;
+	uint32_t m_QueryOffset;
+	uint32_t m_QueryLimit;
+	uint32_t m_TotalLobbyCount;	//Has nothing to do with m_QueryLimit
+	uint32_t m_TotalGameCount;	//Has nothing to do with m_QueryLimit
+	vector<CDBCurrentGame*> m_Result;
+
+public:
+	CCallableCurrentGamesQuery(bool nIncludeLobbies, bool nIncludeStarted, uint32_t nQueryOffset, uint32_t nQueryLimit) : CBaseCallable(), m_IncludeLobbies(nIncludeLobbies), m_IncludeStarted(nIncludeStarted), m_QueryOffset(nQueryOffset), m_QueryLimit(nQueryLimit) { }
+	virtual ~CCallableCurrentGamesQuery();
+
+	virtual bool AreLobbiesIncluded() { return m_IncludeLobbies; }
+	virtual bool AreStartedGamesIncluded() { return m_IncludeStarted; }
+	virtual uint32_t GetQueryOffset() { return m_QueryOffset; }
+	virtual uint32_t GetQueryLimit() { return m_QueryLimit; }
+	virtual bool GetTotalLobbyCount() { return m_TotalLobbyCount; }
+	virtual bool GetTotalOngoingGameCount() { return m_TotalGameCount; }
+	virtual vector<CDBCurrentGame*> GetResult() { return m_Result; }
+	virtual void SetResult(vector<CDBCurrentGame*> nResult) { m_Result = nResult; }
 };
 
 class CCallableDownloadAdd : virtual public CBaseCallable
@@ -964,12 +1023,62 @@ public:
 };
 
 
+//
+// CDBDotATopPlayers
+//
 
+class CDBDotATopPlayers
+{
+private:
+	unsigned int m_Size;
+	uint32_t m_Count;
+	uint32_t m_Offset;
+	string *m_PlayersNames;
+	uint32_t *m_PlayersRatings;
 
+public:
+	CDBDotATopPlayers(unsigned int nSize);
+	~CDBDotATopPlayers();
 
+	unsigned int GetSize() { return m_Size; }
+	uint32_t GetCount() { return m_Count; }
+	uint32_t GetOffset() { return m_Offset; }
+	string *GetAllPlayersNames() { return m_PlayersNames; }
+	uint32_t *GetAllPlayersRatings() { return m_PlayersRatings; }
+	string GetPlayerName(unsigned int i) {return i < m_Size ? m_PlayersNames[i] : string(); }
+	uint32_t GetPlayerRating(unsigned int i) {return i < m_Size ? m_PlayersRatings[i] : 0; }
+	void SetCount(uint32_t value) { m_Count = value; }
+	void SetOffset(uint32_t value) { m_Offset = value; }
+	void SetlayerName(unsigned int i, string value) { m_PlayersNames[i] = value; }
+	void SetPlayerRating(unsigned int i, uint32_t value) { m_PlayersRatings[i] = value; }
+};
 
+//
+// CDBCurrentGame
+//
 
+class CDBCurrentGame
+{
+private:
 
+public:
+	CDBCurrentGame();
+	~CDBCurrentGame();
+
+	uint32_t m_BotID;
+	string m_CreatorName;
+	string m_OwnerName;
+	string m_GameName;
+	string m_Names;
+	string m_MapName;
+	time_t m_CreatedAt;
+	time_t m_StartedAt;
+	time_t m_ExpireDate;
+	bool m_GameStarted;
+	uint32_t m_GameRandomID;
+	uint8_t m_OccupiedSlots;
+	uint8_t m_MaxSlots;
+};
 
 
 
@@ -1058,10 +1167,11 @@ protected:
 	CDBDotAPlayer* m_DotAPlayer;	//stats to add to player row
 	CDBDotAGame* m_DotAGame;		//Needed for game duration etc
 	uint32_t m_BaseRating;			//Default Elo for new players
+	uint32_t m_OpponentAvgRaing;	//Used to calc new Elo
 	uint32_t m_Result;
 
 public:
-	CCallableDotAPlayerStatsUpdate(string nServerName, string nName, CDBDotAPlayer *nDotAPlayer, CDBDotAGame *nDotAGame, uint32_t nBaseRating) : CBaseCallable(), m_ServerName(nServerName), m_Name(nName), m_DotAPlayer(nDotAPlayer), m_DotAGame(nDotAGame), m_BaseRating(nBaseRating) { }
+	CCallableDotAPlayerStatsUpdate(string nServerName, string nName, CDBDotAPlayer *nDotAPlayer, CDBDotAGame *nDotAGame, uint32_t nBaseRating, uint32_t nOpponentAvgRaing) : CBaseCallable(), m_ServerName(nServerName), m_Name(nName), m_DotAPlayer(nDotAPlayer), m_DotAGame(nDotAGame), m_BaseRating(nBaseRating), m_OpponentAvgRaing(nOpponentAvgRaing) { }
 	virtual ~CCallableDotAPlayerStatsUpdate();
 
 	virtual string GetServerName() { return m_ServerName; }
@@ -1070,10 +1180,43 @@ public:
 	virtual CDBDotAGame* GetDotAGame() { return m_DotAGame; }
 	virtual uint32_t GetBaseRating() { return m_BaseRating; }
 	virtual void SetBaseRating(uint32_t nBaseRating) { m_BaseRating = nBaseRating; }
+	virtual uint32_t GetOpponentAvgRaing() { return m_OpponentAvgRaing; }
+	virtual void SetOpponentAvgRaing(uint32_t nOpponentAvgRaing) { m_OpponentAvgRaing = nOpponentAvgRaing; }
 	virtual uint32_t GetResult() { return m_Result; }
 	virtual void SetResult(uint32_t nResult) { m_Result = nResult; }
 };
 
+class CCallableCurrentGameUpdate : virtual public CBaseCallable
+{
+protected:
+	uint32_t m_BotID;
+	unsigned char m_Action;
+	string m_Param;
+	string m_CreatorName;
+	string m_OwnerName;
+	string m_GameName;
+	string m_Names;
+	string m_MapName;
+	string m_CreatedAt;
+	string m_StartedAt;
+	string m_ExpireDate;
+	bool m_GameStarted;
+	uint32_t m_GameRandomID;
+	bool m_ClearAll;
+	uint8_t m_OccupiedSlots;
+	uint8_t m_MaxSlots;
+	uint32_t m_Result;
+
+public:
+	CCallableCurrentGameUpdate(uint32_t nBotID, unsigned char nAction, string nParam, string nCreatorName, string nOwnerName, string nGameName, string nNames, string nMapName, string nCreatedAt, string nStartedAt, string nExpireDate, bool nGameStarted, uint32_t nGameRandomID, bool nClearAll, uint8_t nOccupiedSlots, uint8_t nMaxSlots) : CBaseCallable(),
+		m_BotID(nBotID), m_Action(nAction), m_Param(nParam), m_CreatorName(nCreatorName), m_OwnerName(nOwnerName), m_GameName(nGameName), m_Names(nNames), m_MapName(nMapName), m_CreatedAt(nCreatedAt), m_ExpireDate(nExpireDate), m_GameStarted(nGameStarted), m_GameRandomID(nGameRandomID), m_ClearAll(nClearAll), m_OccupiedSlots(nOccupiedSlots), m_MaxSlots(nMaxSlots), m_Result(0) { }
+	virtual ~CCallableCurrentGameUpdate();
+
+	virtual uint32_t GetGameRandomID() { return m_GameRandomID; }
+	virtual void SetGameRandomID(uint32_t nGameRandomID) { m_GameRandomID = nGameRandomID; }
+	virtual uint32_t GetResult() { return m_Result; }
+	virtual void SetResult(uint32_t nResult) { m_Result = nResult; }
+};
 
 //---------------------------------------------------------------------------------------------//
 

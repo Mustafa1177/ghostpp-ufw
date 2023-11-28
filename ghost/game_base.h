@@ -109,6 +109,8 @@ protected:
 	uint32_t m_StartedKickVoteTime;					// GetTime when the kick vote was started
 	uint32_t m_GameOverTime;						// GetTime when the game was over
 	uint32_t m_LastPlayerLeaveTicks;				// GetTicks when the most recent player left the game
+	uint32_t m_OwnerLeaveTime;						// New: GetTime when game owner left, used for auto unhost	
+	uint32_t m_LastCurrentGameLiveUpdateTime;
 	double m_MinimumScore;							// the minimum allowed score for matchmaking mode
 	double m_MaximumScore;							// the maximum allowed score for matchmaking mode
 	bool m_SlotInfoChanged;							// if the slot info has changed and hasn't been sent to the players yet (optimization)
@@ -129,6 +131,7 @@ protected:
 	int m_DoDelete;									// notifies thread to exit
 	uint32_t m_LastReconnectHandleTime;				// last time we tried to handle GProxy reconnects
 	//New
+	uint32_t m_LagScreenTime;						// GetTime when the last lag screen was activated
 	uint32_t m_GameLoadedTime;						// GetTime when the game was loaded
 	bool m_GameEnded;
 	uint32_t m_GameEndedTime;
@@ -142,8 +145,9 @@ public:
 	boost::mutex m_SpoofAddMutex;
 	vector<string> m_AutoBanTemp;
 	//New
-	uint32_t m_GetMapNumPlayers;
-	uint32_t m_GetMapNumTeams;
+	uint32_t m_MapNumPlayers;
+	uint32_t m_MapNumTeams;
+	uint32_t m_MapDefaultPlayerScore;
 	uint32_t m_Team1;							// Players in team 1
 	uint32_t m_Team2;							// Players in team 2
 	uint32_t m_Team3;							// Players in team 3
@@ -152,7 +156,10 @@ public:
 	bool m_BanOn;									// If we ban the player or not
 	uint32_t m_PlayersLeft;							// Number of players that have left.
 	bool m_EvenPlayeredTeams;						// If the the teams are even playered or not
-
+	bool m_AllowOwnageTakeOver;						// Allow anyone who use !owner to take over the lobby if the current owner is absent
+	uint32_t m_AutoUnhost;							// Auto anuhost if host went absent for few minutes
+	bool m_AutoDisplayStatsOnJoin;
+	bool m_FullGameNotifyOwner;					//Whether to whisper the owner if game gets filled
 public:
 	CBaseGame( CGHost *nGHost, CMap *nMap, CSaveGame *nSaveGame, uint16_t nHostPort, unsigned char nGameState, string nGameName, string nOwnerName, string nCreatorName, string nCreatorServer );
 	virtual ~CBaseGame( );
@@ -304,6 +311,7 @@ public:
 	virtual void CreateFakePlayer( );
 	virtual void DeleteFakePlayer( );
 	virtual bool IsAutoBanned(string name);
+	virtual string GetAllPlayersNames();
 	virtual void TestDotaSubmit(CGHost* GHost, CGHostDB* DB, uint32_t GameID); ///////////////////////
 	virtual void ReCalculateTeams();
 

@@ -45,7 +45,7 @@ using namespace boost :: filesystem;
 // CBNET
 //
 
-CBNET :: CBNET( CGHost *nGHost, string nServer, string nServerAlias, string nBNLSServer, uint16_t nBNLSPort, uint32_t nBNLSWardenCookie, string nCDKeyROC, string nCDKeyTFT, string nCountryAbbrev, string nCountry, uint32_t nLocaleID, string nUserName, string nUserPassword, string nFirstChannel, string nRootAdmin, char nCommandTrigger, bool nHoldFriends, bool nHoldClan, bool nPublicCommands, unsigned char nWar3Version, BYTEARRAY nEXEVersion, BYTEARRAY nEXEVersionHash, string nPasswordHashType, string nPVPGNRealmName, uint32_t nMaxMessageLength, uint32_t nHostCounterID )
+CBNET :: CBNET( CGHost *nGHost, string nServer, string nServerAlias, string nBNLSServer, uint16_t nBNLSPort, uint32_t nBNLSWardenCookie, string nCDKeyROC, string nCDKeyTFT, string nCountryAbbrev, string nCountry, uint32_t nLocaleID, string nUserName, string nUserPassword, string nFirstChannel, string nRootAdmin, char nCommandTrigger, bool nHoldFriends, bool nHoldClan, bool nPublicCommands, unsigned char nWar3Version, BYTEARRAY nEXEVersion, BYTEARRAY nEXEVersionHash, string nPasswordHashType, string nPVPGNRealmName, uint32_t nMaxMessageLength, string nChildrenBotsNames, string nMasterBotName, uint32_t nHostCounterID )
 {
 	// todotodo: append path seperator to Warcraft3Path if needed
 
@@ -60,6 +60,22 @@ CBNET :: CBNET( CGHost *nGHost, string nServer, string nServerAlias, string nBNL
 	m_Server = nServer;
 	string LowerServer = m_Server;
 	transform( LowerServer.begin( ), LowerServer.end( ), LowerServer.begin( ), (int(*)(int))tolower );
+	
+	if (!nChildrenBotsNames.empty())
+	{
+		string LowerChildrenBotsNames = nChildrenBotsNames;
+		transform(LowerChildrenBotsNames.begin(), LowerChildrenBotsNames.end(), LowerChildrenBotsNames.begin(), (int(*)(int))tolower);
+		std::stringstream BotNamesStream(LowerChildrenBotsNames);
+		std::string s;
+		while (std::getline(BotNamesStream, s, ' ')) {
+			if (!s.empty())
+				m_ChildrenBotsNames.push_back(s);
+		}
+	}
+	m_MasterBotName = nMasterBotName;
+	string LowerMasterBotName = nMasterBotName;
+	transform(LowerMasterBotName.begin(), LowerMasterBotName.end(), LowerMasterBotName.begin(), (int(*)(int))tolower);
+
 
 	if( !nServerAlias.empty( ) )
 		m_ServerAlias = nServerAlias;
@@ -127,6 +143,8 @@ CBNET :: CBNET( CGHost *nGHost, string nServer, string nServerAlias, string nBNL
 	m_FrequencyDelayTimes = 0;
 	m_LastAdminRefreshTime = GetTime( );
 	m_LastBanRefreshTime = GetTime( );
+	m_LastChildrenBotsFreeCheck = GetTime( );
+	m_NextChildBotIndex = 0;
 	m_FirstConnect = true;
 	m_WaitingToConnect = true;
 	m_LoggedIn = false;
@@ -183,6 +201,10 @@ CBNET :: ~CBNET( )
 
 	for( vector<PairedDPSCheck> :: iterator i = m_PairedDPSChecks.begin( ); i != m_PairedDPSChecks.end( ); ++i )
 		m_GHost->m_Callables.push_back( i->second );
+	for (vector<PairedDPSCheckNew> ::iterator i = m_PairedDPSChecksNew.begin(); i != m_PairedDPSChecksNew.end(); ++i)
+		m_GHost->m_Callables.push_back(i->second);
+	for (vector<PairedCGQuery> ::iterator i = m_PairedCGQuery.begin(); i != m_PairedCGQuery.end(); ++i)
+		m_GHost->m_Callables.push_back(i->second);
 
 	if( m_CallableAdminList )
 		m_GHost->m_Callables.push_back( m_CallableAdminList );
@@ -411,6 +433,139 @@ bool CBNET :: Update( void *fd, void *send_fd )
 		else
 			++i;
 	}
+
+	for (vector<PairedDPSCheckNew> ::iterator i = m_PairedDPSChecksNew.begin(); i != m_PairedDPSChecksNew.end(); )
+	{
+		if (i->second->GetReady())
+		{
+			CDBDotAPlayerSummaryNew* DotAPlayerSummary = i->second->GetResult();
+
+			if (DotAPlayerSummary)
+			{
+				string SummaryMsg1 = "[" + i->second->GetName() + "] PSR: " + UTIL_ToString(DotAPlayerSummary->GetRating()) + " Games: " + UTIL_ToString(DotAPlayerSummary->GetTotalGames()) +
+					" (W/L: " + UTIL_ToString(DotAPlayerSummary->GetTotalWins()) + "/" + UTIL_ToString(DotAPlayerSummary->GetTotalLosses()) + ") Leave: " + UTIL_ToString(DotAPlayerSummary->GetLeavePercent(), 0) + "% WR: " + UTIL_ToString(DotAPlayerSummary->GetWinsPerGame(), 0) + "%" + "  PlayTime: " + UTIL_ToString((float_t)DotAPlayerSummary->GetTotalPlayedMinutes() / 60, 1) + "hr";
+				string SummaryMsg2 = "Hero KDA: " + UTIL_ToString(DotAPlayerSummary->GetKillsPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetDeathsPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetAssistsPerGame(), 2) +
+					" Creep KDN: " + UTIL_ToString(DotAPlayerSummary->GetCreepKillsPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetCreepDeniesPerGame(), 2) + "/" + UTIL_ToString(DotAPlayerSummary->GetNeutralKillsPerGame(), 2);
+				QueueChatCommand(SummaryMsg1, i->first, !i->first.empty());
+				QueueChatCommand(SummaryMsg2, i->first, !i->first.empty());
+			}
+			else
+				QueueChatCommand(m_GHost->m_Language->HasntPlayedDotAGamesWithThisBot(i->second->GetName()), i->first, !i->first.empty());
+
+			m_GHost->m_DB->RecoverCallable(i->second);
+			delete i->second;
+			i = m_PairedDPSChecksNew.erase(i);
+		}
+		else
+			i++;
+	}
+
+	for (vector<PairedCGQuery> ::iterator i = m_PairedCGQuery.begin(); i != m_PairedCGQuery.end(); )
+	{
+		if (i->second->GetReady())
+		{
+			vector<CDBCurrentGame*> CurrGames = i->second->GetResult();
+			vector<string> Replies;
+
+			if (i->second->GetQueryLimit() > 0)
+			{
+				if (CurrGames.size())
+				{
+					uint32_t num = 1;
+
+					if (i->second->GetQueryLimit() > 1 && i->second->AreLobbiesIncluded())
+					{
+						Replies.push_back("Current open lobbies:");
+					}
+					for (vector<CDBCurrentGame*> ::iterator cg = CurrGames.begin(); cg != CurrGames.end(); cg++)
+					{
+						if (!(*cg)->m_GameStarted) //filter out ongoing games
+						{
+							string reply = "#" + UTIL_ToString(i->second->GetQueryOffset() + num) + " [" + (*cg)->m_GameName + " : " + (*cg)->m_OwnerName + "] [" + UTIL_ToString((*cg)->m_OccupiedSlots) + "/" + UTIL_ToString((*cg)->m_MaxSlots) + "] " + (!(*cg)->m_Names.empty() ? (*cg)->m_Names : "No Players");
+							Replies.push_back(reply);
+							num++;
+						}
+					}
+
+					if (i->second->GetQueryLimit() > 1 && i->second->AreStartedGamesIncluded())
+					{
+						Replies.push_back("Current ongoing games:");
+					}
+					for (vector<CDBCurrentGame*> ::iterator cg = CurrGames.begin(); cg != CurrGames.end(); cg++)
+					{
+						if ((*cg)->m_GameStarted) //filter out lobbies
+						{
+							time_t t = time(nullptr);
+							uint32_t MinutesElapsed = (t - (*cg)->m_StartedAt) / 60;
+							//uint32_t minElp = time(nullptr) - time((*cg)->m_StartedAt);
+							string reply = "Game#" + UTIL_ToString(i->second->GetQueryOffset() + num) + " [" + (*cg)->m_GameName + "] (" + UTIL_ToString(MinutesElapsed) + "m) " + (!(*cg)->m_Names.empty() ? (*cg)->m_Names : "No Players");
+							Replies.push_back(reply);
+							num++;
+						}				
+					}		
+				}
+				else
+				{
+					if(i->second->GetQueryLimit() == 1)
+						Replies.push_back(i->second->AreLobbiesIncluded() ? "Lobby #" + UTIL_ToString(i->second->GetQueryOffset() + 1) + " does not exist" : "Game #" + UTIL_ToString(i->second->GetQueryOffset() + 1) + " does not exist");
+					else
+						Replies.push_back(i->second->AreLobbiesIncluded() ? "There are no open lobbies" : "There is not any ongoing game");
+				}
+			}
+			else
+			{ //Activity query
+				Replies.push_back("Current ongoing games [" + UTIL_ToString(i->second->GetTotalOngoingGameCount()) + "], current open lobbies [" + UTIL_ToString(i->second->GetTotalLobbyCount()) + "]");
+			}
+
+			for (vector<string>::iterator reply = Replies.begin(); reply != Replies.end(); reply++)
+				QueueChatCommand((*reply), i->first, !i->first.empty());
+
+			m_GHost->m_DB->RecoverCallable(i->second);
+			delete i->second;
+			i = m_PairedCGQuery.erase(i);
+		}
+		else
+			i++;
+	}
+
+
+	if (m_GHost->m_MasterBotMode)
+	{
+		//delete from queue if 15 sec passed
+		for (vector<QueuedLobby*>::iterator i = m_QueuedLobbies.begin(); i != m_QueuedLobbies.end();)
+		{
+			if (GetTime() - (*i)->CreateTime > 15)
+			{
+				QueueChatCommand("Failed to host game [" + (*i)->GameName + "], please retry shorty", (*i)->CreatorName, true);
+				delete* i;
+				i = m_QueuedLobbies.erase(i);
+			}
+			else
+				++i;
+		}
+
+		//delete from created lobbies history if 2 minutes passed
+		for (vector<pair<string, uint32_t>> ::iterator i = m_LobbiesCreateHistory.begin(); i != m_LobbiesCreateHistory.end(); )
+		{
+			if (GetTime() - i->second >= 120)
+			{
+				i = m_LobbiesCreateHistory.erase(i);
+			}
+			else
+				++i;
+		}
+	
+		//find free bot, send 1 msg every 2 seconds to avoid spam
+		if (m_QueuedLobbies.size() > 0 && GetTime() - m_LastChildrenBotsFreeCheck >= 2)
+		{
+			m_LastChildrenBotsFreeCheck = GetTime();
+			if (m_NextChildBotIndex >= m_ChildrenBotsNames.size())
+				m_NextChildBotIndex = 0;
+			QueueChatCommand("!freecheck", m_ChildrenBotsNames[m_NextChildBotIndex], true);
+			m_NextChildBotIndex +=1;
+		}
+	}
+
 
 	// refresh the admin list every 5 minutes
 
@@ -1484,8 +1639,11 @@ void CBNET :: BotCommand( string Message, string User, bool Whisper, bool ForceR
 		// !COUNTBANS
 		//
 
-		else if( Command == "countbans" )
-			m_PairedBanCounts.push_back( PairedBanCount( Whisper ? User : string( ), m_GHost->m_DB->ThreadedBanCount( m_Server ) ) );
+		else if (Command == "countbans")
+		{
+			m_PairedBanCounts.push_back(PairedBanCount(Whisper ? User : string(), m_GHost->m_DB->ThreadedBanCount(m_Server)));
+			m_PairedBanCounts.push_back(PairedBanCount(Whisper ? User : string(), m_GHost->m_DB->ThreadedBanCount(string())));
+		}
 
 		//
 		// !DBSTATUS
@@ -1665,6 +1823,24 @@ void CBNET :: BotCommand( string Message, string User, bool Whisper, bool ForceR
 			SendClanChangeRank( Payload, CBNETProtocol :: CLAN_MEMBER );
 			SendGetClanList( );
 			CONSOLE_Print( "[GHOST] changing " + Payload + " to status grunt done by " + User );
+		}
+
+		//
+		// !GS
+		//
+
+		else if (Command == "gs")
+		{
+			if (!Payload.empty())
+			{
+				double arg = UTIL_ToDouble(Payload);
+				if (arg >= 0 && arg <= 64)
+					m_GHost->m_GlobalSpeed = UTIL_ToDouble(Payload);
+				QueueChatCommand("New value: " + UTIL_ToString(m_GHost->m_GlobalSpeed, 4), User, true);
+			}
+			else
+				QueueChatCommand("Current value: " + UTIL_ToString(m_GHost->m_GlobalSpeed, 4), User, true);
+				
 		}
 
 		//
@@ -1897,63 +2073,7 @@ void CBNET :: BotCommand( string Message, string User, bool Whisper, bool ForceR
 			SendClanChangeRank( Payload, CBNETProtocol :: CLAN_PARTIAL_MEMBER );
 			SendGetClanList( );
 			CONSOLE_Print( "[GHOST] changing " + Payload + " to status peon done by " + User );
-		}
-
-		//
-		// !PRIV (host private game)
-		//
-
-		else if( Command == "priv" && !Payload.empty( ) )
-			m_GHost->CreateGame( m_GHost->m_Map, GAME_PRIVATE, false, Payload, User, User, m_Server, Whisper );
-
-		//
-		// !PRIVBY (host private game by other player)
-		//
-
-		else if( Command == "privby" && !Payload.empty( ) )
-		{
-			// extract the owner and the game name
-			// e.g. "Varlock dota 6.54b arem ~~~" -> owner: "Varlock", game name: "dota 6.54b arem ~~~"
-
-			string Owner;
-			string GameName;
-			string :: size_type GameNameStart = Payload.find( " " );
-
-			if( GameNameStart != string :: npos )
-			{
-				Owner = Payload.substr( 0, GameNameStart );
-				GameName = Payload.substr( GameNameStart + 1 );
-				m_GHost->CreateGame( m_GHost->m_Map, GAME_PRIVATE, false, GameName, Owner, User, m_Server, Whisper );
-			}
-		}
-
-		//
-		// !PUB (host public game)
-		//
-
-		else if( Command == "pub" && !Payload.empty( ) )
-			m_GHost->CreateGame( m_GHost->m_Map, GAME_PUBLIC, false, Payload, User, User, m_Server, Whisper );
-
-		//
-		// !PUBBY (host public game by other player)
-		//
-
-		else if( Command == "pubby" && !Payload.empty( ) )
-		{
-			// extract the owner and the game name
-			// e.g. "Varlock dota 6.54b arem ~~~" -> owner: "Varlock", game name: "dota 6.54b arem ~~~"
-
-			string Owner;
-			string GameName;
-			string :: size_type GameNameStart = Payload.find( " " );
-
-			if( GameNameStart != string :: npos )
-			{
-				Owner = Payload.substr( 0, GameNameStart );
-				GameName = Payload.substr( GameNameStart + 1 );
-				m_GHost->CreateGame( m_GHost->m_Map, GAME_PUBLIC, false, GameName, Owner, User, m_Server, Whisper );
-			}
-		}
+		}	
 
 		//
 		// !RELOAD
@@ -2086,38 +2206,136 @@ void CBNET :: BotCommand( string Message, string User, bool Whisper, bool ForceR
 	{
 		
 		//
-		// !GAMES
+		// !FREECHECK
 		//
 
-		if (Command == "games")
+		if (Command == "freecheck" && Whisper)
 		{
-			if (m_GHost->m_Games.size() > 0)
+			string UserLower = User;
+			transform(UserLower.begin(), UserLower.end(), UserLower.begin(), (int(*)(int))tolower);
+			if (m_GHost->m_ChildBotMode && UserLower == m_MasterBotName)
 			{
-				for (vector<CBaseGame*> ::iterator i = m_GHost->m_Games.begin(); i != m_GHost->m_Games.end(); i++)
-				{
-					string reply = "[" + (*i)->GetGameName() + "] ";
-					BYTEARRAY IDs = (*i)->GetPIDs();
+				string Reply = !m_GHost->m_CurrentGame ? "!imfree" : "!imnotfree";
+				if (!Payload.empty() && Payload.size() <= 32)
+					Reply += " " + Payload;
+				QueueChatCommand(Reply, User, Whisper);
+			}	
+		}
 
-					for (BYTEARRAY::iterator i2 = IDs.begin(); i2 != IDs.end(); i2++)
-					{
-						CGamePlayer* plyr = (*i)->GetPlayerFromPID(*i2);
-						reply += plyr->GetName() + " ";
-					}
+		//
+		// !GAME
+		//
 
-					QueueChatCommand(reply, User, Whisper);
-				}
-			}
-			else
+		else if (Command == "game")
+		{
+			if (!Payload.empty())
 			{
-				QueueChatCommand("There are no ongoing games.", User, Whisper);
+				uint32_t GameIndex = UTIL_ToUInt32(Payload);
+				GameIndex--;
+				if (GameIndex >= 0 && GameIndex < 99999)
+					m_PairedCGQuery.push_back(PairedCGQuery(User, m_GHost->m_DB->ThreadedCurrentGamesQuery(false, true, GameIndex, 1)));
 			}
 		}
 
 		//
+		//
+		// !GAMES
+		// !ACTIVITY
+		//
+
+		else if (Command == "games" || Command == "activity")
+		{
+			if (m_GHost->m_MasterBotMode)
+				m_PairedCGQuery.push_back(PairedCGQuery(User, m_GHost->m_DB->ThreadedCurrentGamesQuery(false, false, 0, 0)));
+			else
+			{
+				if (m_GHost->m_Games.size() > 0)
+				{
+					for (vector<CBaseGame*> ::iterator i = m_GHost->m_Games.begin(); i != m_GHost->m_Games.end(); i++)
+					{
+						string reply = "[" + (*i)->GetGameName() + "] ";
+						BYTEARRAY IDs = (*i)->GetPIDs();
+
+						for (BYTEARRAY::iterator i2 = IDs.begin(); i2 != IDs.end(); i2++)
+						{
+							CGamePlayer* plyr = (*i)->GetPlayerFromPID(*i2);
+							reply += plyr->GetName() + " ";
+						}
+
+						QueueChatCommand(reply, User, Whisper);
+					}
+				}
+				else
+				{
+					QueueChatCommand("There are no ongoing games.", User, Whisper);
+				}
+			}
+		}
+
+		//
+		// !IMFREE
+		//
+
+		else if (Command == "imfree" && m_GHost->m_MasterBotMode && Whisper)
+		{
+			string HostArgs = Payload;
+			if (m_QueuedLobbies.size())
+			{
+				bool IsChild = false;
+				string UserLower = User;
+				transform(UserLower.begin(), UserLower.end(), UserLower.begin(), (int(*)(int))tolower);
+				for (vector<string> ::iterator i = m_ChildrenBotsNames.begin(); i != m_ChildrenBotsNames.end(); i++)
+					if ((*i) == UserLower) 
+					{
+						IsChild = true;
+						break;
+					}
+				if (IsChild)
+				{					
+					vector<QueuedLobby*>::iterator i = m_QueuedLobbies.begin();		
+					QueuedLobby* Selectedlobby = (*i);
+					m_QueuedLobbies.erase(i);				
+					string HostCmd = (Selectedlobby->GameState == GAME_PUBLIC ? "!pubby " : "!privby ") + Selectedlobby->OwnerName + " " + Selectedlobby->GameName;
+					QueueChatCommand(HostCmd, User, true);
+					pair<string, uint32_t> hist;
+					hist.first = Selectedlobby->CreatorName;
+					hist.second = GetTime();
+					m_LobbiesCreateHistory.push_back(hist);
+					delete Selectedlobby;
+				}			
+			}
+		}
+		
+		//
 		// !LOBBIES
 		//
 
-		if (Command == "lobbies")
+		else if (Command == "lobbies")
+		{
+			if(m_GHost->m_MasterBotMode)
+				m_PairedCGQuery.push_back(PairedCGQuery(User, m_GHost->m_DB->ThreadedCurrentGamesQuery(true, false, 0, 5)));
+		}
+
+		//
+		// !LOBBY
+		//
+
+		else if (Command == "lobby")
+		{
+			if (!Payload.empty())
+			{
+				uint32_t LobbyIndex = UTIL_ToUInt32(Payload);
+				LobbyIndex--;
+				if (LobbyIndex >= 0 && LobbyIndex < 99999)
+					m_PairedCGQuery.push_back(PairedCGQuery(User, m_GHost->m_DB->ThreadedCurrentGamesQuery(true, false, LobbyIndex, 1)));
+			}
+		}
+
+		//
+		// !LOCALLOBBIES
+		//
+
+		if (Command == "locallobbies")
 		{
 			string reply;
 
@@ -2145,20 +2363,145 @@ void CBNET :: BotCommand( string Message, string User, bool Whisper, bool ForceR
 		}
 
 		//
+		// !PUB (host public game) / !PRIV (host private game)
+		//
+
+		else if ((Command == "pub" || Command == "priv") && !Payload.empty())
+		{
+			if (!m_GHost->m_MasterBotMode && (!m_GHost->m_ChildBotMode || (m_GHost->m_ChildBotMode && (IsAdmin(User) || IsRootAdmin(User) || ForceRoot)))) //use normal pub if bot is not master or its a child bot and the cmd is comming from an admin
+			{
+				m_GHost->CreateGame(m_GHost->m_Map, Command == "pub" ? GAME_PUBLIC : GAME_PRIVATE, false, Payload, User, User, m_Server, true);
+			}
+			else
+			{
+				if (Whisper)
+				{
+					unsigned int QueuedLobbiesLimit = 10;
+					if (m_QueuedLobbies.size() < QueuedLobbiesLimit)
+					{
+						bool UserAlreadyInQueue = false;
+						for (QueuedLobby* i : m_QueuedLobbies)
+						{
+							if (i->OwnerName == User)
+							{
+								UserAlreadyInQueue = true;
+								break;
+							}
+						}
+						if (!UserAlreadyInQueue)
+						{
+							bool UserIsInHistory = false;
+							for (pair<string, uint32_t> i : m_LobbiesCreateHistory)
+							{
+								if (i.first == User)
+								{
+									UserIsInHistory = true;
+									uint32_t timeRemaining = 120 - (GetTime() - i.second);
+									QueueChatCommand("You have used this command just now, please try again in [" + UTIL_ToString(timeRemaining) + "sec]", User, true);
+									break;
+								}
+							}
+
+							if (!UserIsInHistory)
+							{
+								QueueChatCommand("Attempting to create a new game...", User, true);
+								m_QueuedLobbies.push_back(new QueuedLobby(GetTime(), Command == "pub" ? GAME_PUBLIC : GAME_PRIVATE, false, Payload, User, User));
+								m_LastChildrenBotsFreeCheck = GetTime();
+								for (string i : m_ChildrenBotsNames)
+								{
+									//QueueChatCommand("!freecheck 00000", i, true); //commented bcs this causes spam, these msgs will be sent with delay pf 2 seconds in Update()
+								}
+							}			
+						}
+						else
+							QueueChatCommand("You already have a lobby waiting in queue, please wait.", User, true);
+					}
+					else
+						QueueChatCommand("Bots are busy atm, try again shortly.", User, true);
+				}
+			
+			}
+		}
+
+		//
+		// !PUBBY (host public game by other player) / !PRIVBY (host private game by other player)
+		//
+
+		else if ((Command == "pubby" || Command == "privby") && !Payload.empty())
+		{
+			bool FromMaster = false;
+			if (m_GHost->m_ChildBotMode)
+			{
+				string UserLower = User;
+				transform(UserLower.begin(), UserLower.end(), UserLower.begin(), (int(*)(int))tolower);
+				if (UserLower == m_MasterBotName)
+					FromMaster = true;
+			}
+			if (IsAdmin(User) || IsRootAdmin(User) || FromMaster || ForceRoot)
+			{
+				string Owner;
+				string GameName;
+				string::size_type GameNameStart = Payload.find(" ");
+
+				if (GameNameStart != string::npos)
+				{
+					Owner = Payload.substr(0, GameNameStart);
+					GameName = Payload.substr(GameNameStart + 1);
+					m_GHost->CreateGame(m_GHost->m_Map, Command == "pubby" ? GAME_PUBLIC : GAME_PRIVATE, false, GameName, Owner, FromMaster? Owner : User, m_Server, true);
+				}
+			}
+			// extract the owner and the game name
+			// e.g. "Varlock dota 6.54b arem ~~~" -> owner: "Varlock", game name: "dota 6.54b arem ~~~"	
+		}
+
+		//
+		// !PUBMASTER / !PRIVMASTER
+		//
+
+		else if ((Command == "pubmaster" || Command == "privmaster") && !Payload.empty())
+		{
+			if (IsAdmin(User) || IsRootAdmin(User) || ForceRoot)
+				m_GHost->CreateGame(m_GHost->m_Map, Command == "pubmaster" ? GAME_PUBLIC : GAME_PRIVATE, false, Payload, User, User, m_Server, Whisper);
+		}
+
+		//
+		// !SD
+		//
+
+		else if (Command == "sd")
+		{
+			if (!m_GHost->m_ChildBotMode)
+			{
+				string StatsUser = User;
+
+				if (!Payload.empty())
+					StatsUser = Payload;
+
+				// check for potential abuse
+
+				if (!StatsUser.empty() && StatsUser.size() < 16 && StatsUser[0] != '/')
+					m_PairedDPSChecksNew.push_back(PairedDPSCheckNew(Whisper ? User : User, m_GHost->m_DB->ThreadedDotAPlayerSummaryCheckNew(string(), StatsUser, "1", string())));
+			}		
+		}
+
+		//
 		// !STATS
 		//
 
 		else if( Command == "stats" )
 		{
-			string StatsUser = User;
+			if (!m_GHost->m_ChildBotMode)
+			{
+				string StatsUser = User;
 
-			if( !Payload.empty( ) )
-				StatsUser = Payload;
+				if (!Payload.empty())
+					StatsUser = Payload;
 
-			// check for potential abuse
+				// check for potential abuse
 
-			if( !StatsUser.empty( ) && StatsUser.size( ) < 16 && StatsUser[0] != '/' )
-				m_PairedGPSChecks.push_back( PairedGPSCheck( Whisper ? User : string( ), m_GHost->m_DB->ThreadedGamePlayerSummaryCheck( StatsUser ) ) );
+				if (!StatsUser.empty() && StatsUser.size() < 16 && StatsUser[0] != '/')
+					m_PairedGPSChecks.push_back(PairedGPSCheck(Whisper ? User : string(), m_GHost->m_DB->ThreadedGamePlayerSummaryCheck(StatsUser)));
+			}		
 		}
 
 		//
@@ -2166,8 +2509,12 @@ void CBNET :: BotCommand( string Message, string User, bool Whisper, bool ForceR
 		// !SD
 		//
 
-		else if( Command == "statsdota" || Command == "sd" )
+		else if( Command == "statsdota" )
 		{
+			if (!m_GHost->m_ChildBotMode)
+			{
+
+			}
 			string StatsUser = User;
 
 			if( !Payload.empty( ) )
@@ -2185,10 +2532,13 @@ void CBNET :: BotCommand( string Message, string User, bool Whisper, bool ForceR
 
 		else if( Command == "version" )
 		{
-			if( IsAdmin( User ) || IsRootAdmin( User ) )
-				QueueChatCommand( m_GHost->m_Language->VersionAdmin( m_GHost->m_Version ), User, Whisper );
-			else
-				QueueChatCommand( m_GHost->m_Language->VersionNotAdmin( m_GHost->m_Version ), User, Whisper );
+			if (Whisper)
+			{
+				if (IsAdmin(User) || IsRootAdmin(User))
+					QueueChatCommand(m_GHost->m_Language->VersionAdmin(m_GHost->m_Version), User, Whisper);
+				else
+					QueueChatCommand(m_GHost->m_Language->VersionNotAdmin(m_GHost->m_Version), User, Whisper);
+			}		
 		}
 	}
 }
@@ -2597,3 +2947,16 @@ void CBNET :: HoldClan( CBaseGame *game )
 			game->AddToReserved( (*i)->GetName( ) );
 	}
 }
+
+//New
+
+QueuedLobby :: QueuedLobby(uint32_t nCreateTime, unsigned char nGameState, bool nSaveGame, string nGameName, string nOwnerName, string nCreatorName)
+{
+	CreateTime = nCreateTime;
+	GameState = nGameState;
+	SaveGame = nSaveGame;
+	GameName = nGameName;
+	OwnerName = nOwnerName;
+	CreatorName = nCreatorName;
+}
+

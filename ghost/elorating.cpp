@@ -9,12 +9,12 @@
 
 #include "next_combination.h"
 
-uint32_t CalcTeamCombinedRating(unsigned char team, vector<CGamePlayer*> m_Players, CGame *m_Game, vector<CGameSlot> m_Slots, uint32_t defaultPlayerRating, int *teamPlayersCount)
+uint32_t CalcTeamCombinedRating(unsigned char team, vector<CGamePlayer*> m_Players, CGame *m_Game, vector<CGameSlot> m_Slots, uint32_t defaultPlayerRating, uint32_t *teamPlayersCount)
 {
 	unsigned char TeamSizes[MAX_SLOTS];
 	uint32_t res = 0;
 	if (teamPlayersCount)
-		teamPlayersCount = 0;
+		*teamPlayersCount = 0;
 
 	for (vector<CGamePlayer*> ::iterator i = m_Players.begin(); i != m_Players.end(); ++i)
 	{
@@ -36,7 +36,7 @@ uint32_t CalcTeamCombinedRating(unsigned char team, vector<CGamePlayer*> m_Playe
 					{
 						res += Rating;
 						if (teamPlayersCount)
-							teamPlayersCount++;
+							*teamPlayersCount +=1;
 					}						
 				}
 			}
@@ -47,23 +47,25 @@ uint32_t CalcTeamCombinedRating(unsigned char team, vector<CGamePlayer*> m_Playe
 
 uint32_t CalcTeamCombinedRating(unsigned char team, vector<CGamePlayer*> m_Players, CGame* m_Game, vector<CGameSlot> m_Slots, uint32_t defaultPlayerRating)
 {
-	int x = 0;
+	uint32_t x = 0;
 	return CalcTeamCombinedRating(team, m_Players, m_Game, m_Slots, defaultPlayerRating, &x);
 }
 
-uint32_t CalcTeamAvgRating(unsigned char team, vector<CGamePlayer*> m_Players, CGame* m_Game, vector<CGameSlot> m_Slots, uint32_t defaultPlayerRating, int &teamPlayersCount)
+uint32_t CalcTeamAvgRating(unsigned char team, vector<CGamePlayer*> m_Players, CGame* m_Game, vector<CGameSlot> m_Slots, uint32_t defaultPlayerRating, uint32_t &teamPlayersCount)
 {
-	int playersInteam = 0;
-	uint32_t combined = CalcTeamCombinedRating(team, m_Players, m_Game, m_Slots, defaultPlayerRating, &playersInteam);
+	uint32_t playersInteam = 0;
+	uint32_t* PlayInTeam = &playersInteam;
+	uint32_t combined = CalcTeamCombinedRating(team, m_Players, m_Game, m_Slots, defaultPlayerRating, PlayInTeam);
 	teamPlayersCount = playersInteam;
 	return playersInteam > 0 ? combined / playersInteam : 0;
 }
 
 uint32_t CalcTeamAvgRating(unsigned char team, vector<CGamePlayer*> m_Players, CGame* m_Game, vector<CGameSlot> m_Slots, uint32_t defaultPlayerRating)
 {
-	int playersInteam = 0;
+	uint32_t playersInteam = 0;
+	uint32_t *PlayInTeam = &playersInteam;
 	uint32_t combined = CalcTeamCombinedRating(team, m_Players, m_Game, m_Slots, defaultPlayerRating, &playersInteam);
-	return playersInteam > 0 ? combined / playersInteam : 0;
+	return playersInteam > 0 ? roundl((double_t)combined / playersInteam) : 0;
 }
 
 void CalculateEloRatingChange(uint32_t r1, uint32_t r2, int32_t* eloGain, int32_t* eloLoss)

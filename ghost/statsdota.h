@@ -36,6 +36,9 @@ private:
 	uint32_t m_Sec;
 
 public:
+	string m_PlayersNames[12];
+	uint32_t m_TeamsAvgRatings[2];
+
 	CStatsDOTA( CBaseGame *nGame );
 	virtual ~CStatsDOTA( );
 

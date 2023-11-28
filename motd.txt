@@ -1,0 +1,1 @@
+To configure spell hotkeys, you can edit the [Warcraft III\config.dota.ini] file

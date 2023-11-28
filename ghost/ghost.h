@@ -122,6 +122,7 @@ public:
 	uint32_t m_MaxDownloaders;				// config value: maximum number of map downloaders at the same time
 	uint32_t m_MaxDownloadSpeed;			// config value: maximum total map download speed in KB/sec
 	bool m_LCPings;							// config value: use LC style pings (divide actual pings by two)
+	uint32_t m_DropVoteTime;       			// config value: accept drop votes after this amount of seconds
 	uint32_t m_AutoKickPing;				// config value: auto kick players with ping higher than this
 	uint32_t m_BanMethod;					// config value: ban method (ban by name/ip/both)
 	string m_IPBlackListFile;				// config value: IP blacklist file (ipblacklist.txt)
@@ -155,6 +156,10 @@ public:
 	uint32_t m_AutoBanGameLoading;			// Ban if leave during loading
 	uint32_t m_AutoBanCountDown;			// Ban if leave during game start countdown.
 	uint32_t m_AutoBanGameEndMins;			// Ban if not left around x mins of game end time.
+	uint32_t m_BotID;
+	bool m_MasterBotMode;					// config value (New): Forwards !pub & !priv commands to a slave bot
+	bool m_ChildBotMode;					// config value (New): Receive !pub & !priv commands only from bot and admins
+	bool m_LiveDBCurrentGamesUpdateEnabled;	// Whether to update lobby/game info to database for live browsing.
 	double m_GlobalSpeed = 0;
 	CGHost( CConfig *CFG );
 	~CGHost( );

@@ -81,6 +81,8 @@
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
     <IntDir>$(ConfigurationName)</IntDir>
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>
+    </IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release MySQL|Win32'">
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
@@ -201,6 +203,7 @@ copy "$(SolutionDir)libmysql.dll" "$(TargetDir)libmysql.dll"</Command>
     <ClCompile Include="crc32.cpp" />
     <ClCompile Include="csvparser.cpp" />
     <ClCompile Include="elorating.cpp" />
+    <ClCompile Include="elorating2.cpp" />
     <ClCompile Include="game.cpp" />
     <ClCompile Include="gameplayer.cpp" />
     <ClCompile Include="gameprotocol.cpp" />
@@ -236,6 +239,7 @@ copy "$(SolutionDir)libmysql.dll" "$(TargetDir)libmysql.dll"</Command>
     <ClInclude Include="crc32.h" />
     <ClInclude Include="csvparser.h" />
     <ClInclude Include="elorating.h" />
+    <ClInclude Include="elorating2.h" />
     <ClInclude Include="game.h" />
     <ClInclude Include="gameplayer.h" />
     <ClInclude Include="gameprotocol.h" />
@@ -254,6 +258,7 @@ copy "$(SolutionDir)libmysql.dll" "$(TargetDir)libmysql.dll"</Command>
     <ClInclude Include="next_combination.h" />
     <ClInclude Include="packed.h" />
     <ClInclude Include="replay.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="savegame.h" />
     <ClInclude Include="sha1.h" />
     <ClInclude Include="socket.h" />
@@ -266,6 +271,9 @@ copy "$(SolutionDir)libmysql.dll" "$(TargetDir)libmysql.dll"</Command>
   </ItemGroup>
   <ItemGroup>
     <Text Include="iccup.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="ghost.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

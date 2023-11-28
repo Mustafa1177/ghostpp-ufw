@@ -318,7 +318,7 @@ uint32_t CGamePlayer::GetPing(bool LCPing)
 		AvgPing += m_Pings[i];
 
 	AvgPing /= m_Pings.size();
-
+	
 	if (LCPing)
 		return AvgPing / 2;
 	else

@@ -50,10 +50,17 @@ CBaseGame :: CBaseGame( CGHost *nGHost, CMap *nMap, CSaveGame *nSaveGame, uint16
 	m_Map = new CMap( *nMap );
 	m_EvenPlayeredTeams = false;
 	m_GameEnded = false;	
+	m_LagScreenTime = 0;
 	m_GameLoadedTime = 0;
 	m_PlayersLeft = 0;
+	m_AllowOwnageTakeOver = false;
+	m_AutoUnhost = true;
+	m_AutoDisplayStatsOnJoin = true;
+	m_FullGameNotifyOwner = false;
+	m_OwnerLeaveTime = GetTime();
 	m_IsLadderGame = m_Map->GetMapType( ) == "dota" ? true : false;
 	m_AutoBanState = m_GHost->m_AutoBan;
+	m_MapDefaultPlayerScore = m_Map->GetMapDefaultPlayerScore();
 
 	if( m_GHost->m_SaveReplays && !m_SaveGame )
 		m_Replay = new CReplay( );	
@@ -150,8 +157,8 @@ CBaseGame :: CBaseGame( CGHost *nGHost, CMap *nMap, CSaveGame *nSaveGame, uint16
 		m_Exiting = true;
 	}
 
-	m_GetMapNumPlayers = m_Map->GetMapNumPlayers();
-	m_GetMapNumTeams = m_Map->GetMapNumTeams();
+	m_MapNumPlayers = m_Map->GetMapNumPlayers();
+	m_MapNumTeams = m_Map->GetMapNumTeams();
 }
 
 CBaseGame :: ~CBaseGame( )
@@ -515,6 +522,16 @@ bool CBaseGame :: Update( void *fd, void *send_fd )
 		}
 
 		m_LastPingTime = GetTime( );
+	}
+
+	//Auto unhost if owner went abset for 3 minutes and auto start is off
+
+	if (!m_GameLoading && !m_GameLoaded && m_AutoUnhost && m_AutoStartPlayers >= 0 && GetTime() - m_OwnerLeaveTime >= 180)
+	{
+		if (GetPlayerFromName(m_OwnerName, false))
+			m_OwnerLeaveTime = GetTime();
+		else
+			m_Exiting = true;
 	}
 
 	// auto rehost if there was a refresh error in autohosted games
@@ -903,6 +920,10 @@ bool CBaseGame :: Update( void *fd, void *send_fd )
 					(*i)->SetDropVote( false );
 
 				m_LastLagScreenResetTime = GetTime( );
+
+				// get current time to use for the drop vote
+
+				m_LagScreenTime = GetTime();
 			}
 		}
 
@@ -1550,6 +1571,9 @@ void CBaseGame :: EventPlayerDeleted( CGamePlayer *player )
 	}
 
 	m_LastPlayerLeaveTicks = GetTicks( );
+
+	if (IsOwner(player->GetName()))
+		m_OwnerLeaveTime = GetTime();	
 
 	// in some cases we're forced to send the left message early so don't send it again
 
@@ -3181,24 +3205,33 @@ void CBaseGame :: EventPlayerChangeHandicap( CGamePlayer *player, unsigned char 
 void CBaseGame :: EventPlayerDropRequest( CGamePlayer *player )
 {
 	// todotodo: check that we've waited the full 45 seconds
-
+	uint32_t TimePassed = GetTime() - m_LagScreenTime;
+	uint32_t TimeRemaining = m_GHost->m_DropVoteTime - TimePassed;
 	if( m_Lagging )
 	{
-		CONSOLE_Print( "[GAME: " + m_GameName + "] player [" + player->GetName( ) + "] voted to drop laggers" );
-		SendAllChat( m_GHost->m_Language->PlayerVotedToDropLaggers( player->GetName( ) ) );
-
-		// check if at least half the players voted to drop
-
-		uint32_t Votes = 0;
-
-		for( vector<CGamePlayer *> :: iterator i = m_Players.begin( ); i != m_Players.end( ); ++i )
+		if (TimePassed < m_GHost->m_DropVoteTime)
 		{
-			if( (*i)->GetDropVote( ) )
-				++Votes;
+			SendAllChat(UTIL_ToString(TimeRemaining) + " seconds grace period remaining");
+			player->SetDropVote(false);
 		}
+		else
+		{
+			CONSOLE_Print("[GAME: " + m_GameName + "] player [" + player->GetName() + "] voted to drop laggers");
+			SendAllChat(m_GHost->m_Language->PlayerVotedToDropLaggers(player->GetName()));
 
-		if( (float)Votes / m_Players.size( ) > 0.49 )
-			StopLaggers( m_GHost->m_Language->LaggedOutDroppedByVote( ) );
+			// check if at least half the players voted to drop
+
+			uint32_t Votes = 0;
+
+			for (vector<CGamePlayer*> ::iterator i = m_Players.begin(); i != m_Players.end(); ++i)
+			{
+				if ((*i)->GetDropVote())
+					++Votes;
+			}
+
+			if ((float)Votes / m_Players.size() > 0.49)
+				StopLaggers(m_GHost->m_Language->LaggedOutDroppedByVote());
+		}	
 	}
 }
 
@@ -3535,7 +3568,7 @@ void CBaseGame :: EventGameLoaded( )
 	m_GameLoadedTime = GetTime();
 	
 	// check if the teams have even number of players
-	if (m_GetMapNumTeams > 1)
+	if (m_MapNumTeams > 1)
 	{
 		uint32_t sTeam1 = 0;
 		uint32_t sTeam2 = 0;
@@ -4770,6 +4803,13 @@ void CBaseGame :: StartCountDown( bool force )
 			if( !NotPinged.empty( ) )
 				SendAllChat( m_GHost->m_Language->PlayersNotYetPinged( NotPinged ) );
 
+			//Check if ladder game is filled
+			if (m_IsLadderGame && m_Map && m_Map->GetMapNumPlayers() < GetNumHumanPlayers())
+			{
+				SendAllChat("Game is not filled");
+				return;
+			}
+
 			// if no problems found start the game
 
 			if( StillDownloading.empty( ) && NotSpoofChecked.empty( ) && NotPinged.empty( ) )
@@ -4981,6 +5021,25 @@ bool CBaseGame::IsAutoBanned(string name)
 	return false;
 }
 
+string CBaseGame::GetAllPlayersNames()
+{
+	string Names = string();
+
+	BYTEARRAY IDs = GetPIDs();
+	if (IDs.size() > 0)
+	{
+		for (BYTEARRAY::iterator i = IDs.begin(); i != IDs.end(); i++)
+		{
+			CGamePlayer* plyr = m_GHost->m_CurrentGame->GetPlayerFromPID(*i);
+			if(plyr->GetLeftCode() == 13 || plyr->GetLeftCode() == 0)
+				Names += plyr->GetName() + " ";
+		}
+		if(Names.size())
+			Names.erase(Names.find_last_not_of(" ") + 1);
+	}
+	return Names;
+}
+
 void CBaseGame::TestDotaSubmit(CGHost* GHost, CGHostDB* DB, uint32_t GameID)
 {
 	string m_Game_GetGameName = "haha"; // m_Game->GetGameName()
@@ -4990,11 +5049,13 @@ void CBaseGame::TestDotaSubmit(CGHost* GHost, CGHostDB* DB, uint32_t GameID)
 	uint32_t m_Winner = 1;
 	uint32_t m_Min = 45;
 	uint32_t m_Sec = 31;
+	uint32_t teamsAvgRating[2] = {1400, 1600};
 
 	m_Players[1] = new CDBDotAPlayer();
 	playerNames[1] = "Dev";
 
 	m_Players[1]->SetColour(1);
+	m_Players[1]->SetNewColour(1);
 	m_Players[1]->SetCourierKills(m_Players[1]->GetCourierKills() + 1);
 
 
@@ -5009,7 +5070,7 @@ void CBaseGame::TestDotaSubmit(CGHost* GHost, CGHostDB* DB, uint32_t GameID)
 				CONSOLE_Print("[STATSDOTANEW!: " + m_Game_GetGameName + "] saving " + UTIL_ToString(Players) + " players");
 				CDBDotAGame* DotaGame = new CDBDotAGame(0, 0, m_Winner, m_Min, m_Sec);
 				string serverName = string();
-				GHost->m_Callables.push_back(DB->ThreadedDotAPlayerStatsUpdate(serverName, playerNames[i], m_Players[i], DotaGame, 1500)); //Player->GetSpoofedRealm() should be the entered as servername param
+				GHost->m_Callables.push_back(DB->ThreadedDotAPlayerStatsUpdate(serverName, playerNames[i], m_Players[i], DotaGame, 1500, m_Players[i]->GetNewColour() > 5 ? teamsAvgRating[0] : teamsAvgRating[1])); //Player->GetSpoofedRealm() should be the entered as servername param
 
 			}
 

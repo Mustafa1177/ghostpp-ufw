@@ -45,7 +45,8 @@ class CCallableBanRemove;
 class CCallableBanList;
 class CCallableGamePlayerSummaryCheck;
 class CCallableDotAPlayerSummaryCheck;
-class CCallableDotAPlayerSummaryCheckNew; //breaks?
+class CCallableDotAPlayerSummaryCheckNew;	//breaks?
+class CCallableCurrentGamesQuery;			//breaks?
 class CDBBan;
 
 typedef pair<string,CCallableAdminCount *> PairedAdminCount;
@@ -56,7 +57,19 @@ typedef pair<string,CCallableBanAdd *> PairedBanAdd;
 typedef pair<string,CCallableBanRemove *> PairedBanRemove;
 typedef pair<string,CCallableGamePlayerSummaryCheck *> PairedGPSCheck;
 typedef pair<string,CCallableDotAPlayerSummaryCheck *> PairedDPSCheck;
-typedef pair<string, CCallableDotAPlayerSummaryCheckNew*> PairedDPSCheckNew; //New
+typedef pair<string, CCallableDotAPlayerSummaryCheckNew *> PairedDPSCheckNew; //New
+typedef pair<string, CCallableCurrentGamesQuery *> PairedCGQuery; //New
+
+
+struct QueuedLobby { //New
+	uint32_t CreateTime;
+	unsigned char GameState;
+	bool SaveGame;
+	string GameName;
+	string OwnerName;
+	string CreatorName;
+	QueuedLobby(uint32_t nCreateTime, unsigned char nGameState, bool nSaveGame, string nGameName, string nOwnerName, string nCreatorName);
+};
 
 class CBNET
 {
@@ -82,10 +95,15 @@ private:
 	vector<PairedGPSCheck> m_PairedGPSChecks;		// vector of paired threaded database game player summary checks in progress
 	vector<PairedDPSCheck> m_PairedDPSChecks;		// vector of paired threaded database DotA player summary checks in progress
 	vector<PairedDPSCheckNew> m_PairedDPSChecksNew; //New
+	vector<PairedCGQuery> m_PairedCGQuery;			//new: vector of paired threaded database current in-progress games queries
+	vector<QueuedLobby*> m_QueuedLobbies;			//New. vector of QueuedLobby that we  will ask child bots to host
+	vector<pair<string, uint32_t>> m_LobbiesCreateHistory; //stores user name and time of when the player last created lobby (used by master bot)
 	CCallableAdminList *m_CallableAdminList;		// threaded database admin list in progress
 	CCallableBanList *m_CallableBanList;			// threaded database ban list in progress
 	vector<string> m_Admins;						// vector of cached admins
 	vector<CDBBan *> m_Bans;						// vector of cached bans
+	vector<string> m_ChildrenBotsNames;				//New. Used when CGHost::m_MasterBotMode is set to true
+	string m_MasterBotName;							//New. Used when CGHost::m_ChildBotMode is set to true
 	boost::mutex m_BansMutex;						// synchronizes accesses and updates to the m_Bans vector
 	bool m_Exiting;									// set to true and this class will be deleted next update
 	string m_Server;								// battle.net server to connect to
@@ -121,6 +139,8 @@ private:
 	uint32_t m_FrequencyDelayTimes;
 	uint32_t m_LastAdminRefreshTime;				// GetTime when the admin list was last refreshed from the database
 	uint32_t m_LastBanRefreshTime;					// GetTime when the ban list was last refreshed from the database
+	uint32_t m_LastChildrenBotsFreeCheck;			// New: GetTime when the last send "!freecheck" to child bots
+	unsigned int m_NextChildBotIndex;
 	bool m_FirstConnect;							// if we haven't tried to connect to battle.net yet
 	bool m_WaitingToConnect;						// if we're waiting to reconnect to battle.net after being disconnected
 	bool m_LoggedIn;								// if we've logged into battle.net or not
@@ -131,7 +151,7 @@ private:
 	bool m_LastInviteCreation;						// whether the last invite received was for a clan creation (else, it was for invitation response)
 
 public:
-	CBNET( CGHost *nGHost, string nServer, string nServerAlias, string nBNLSServer, uint16_t nBNLSPort, uint32_t nBNLSWardenCookie, string nCDKeyROC, string nCDKeyTFT, string nCountryAbbrev, string nCountry, uint32_t nLocaleID, string nUserName, string nUserPassword, string nFirstChannel, string nRootAdmin, char nCommandTrigger, bool nHoldFriends, bool nHoldClan, bool nPublicCommands, unsigned char nWar3Version, BYTEARRAY nEXEVersion, BYTEARRAY nEXEVersionHash, string nPasswordHashType, string nPVPGNRealmName, uint32_t nMaxMessageLength, uint32_t nHostCounterID );
+	CBNET( CGHost *nGHost, string nServer, string nServerAlias, string nBNLSServer, uint16_t nBNLSPort, uint32_t nBNLSWardenCookie, string nCDKeyROC, string nCDKeyTFT, string nCountryAbbrev, string nCountry, uint32_t nLocaleID, string nUserName, string nUserPassword, string nFirstChannel, string nRootAdmin, char nCommandTrigger, bool nHoldFriends, bool nHoldClan, bool nPublicCommands, unsigned char nWar3Version, BYTEARRAY nEXEVersion, BYTEARRAY nEXEVersionHash, string nPasswordHashType, string nPVPGNRealmName, uint32_t nMaxMessageLength, string nChildrenBotsNames, string nMasterBotName, uint32_t nHostCounterID );
 	~CBNET( );
 
 	bool GetExiting( )					{ return m_Exiting; }

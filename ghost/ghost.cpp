@@ -507,6 +507,13 @@ CGHost :: CGHost( CConfig *CFG )
 	m_LANWar3Version = CFG->GetInt( "lan_war3version", 30 );
 	m_ReplayWar3Version = CFG->GetInt( "replay_war3version", 30 );
 	m_ReplayBuildNumber = CFG->GetInt( "replay_buildnumber", 6060 );
+	m_BotID = CFG->GetInt("bot_id", 0);
+	m_MasterBotMode = CFG->GetInt("master_bot_mode", 0) == 0 ? false : true;
+	m_ChildBotMode = CFG->GetInt("child_bot_mode", 0) == 0 ? false : true;
+	m_LiveDBCurrentGamesUpdateEnabled = CFG->GetInt("live_db_current_games_update", 0) == 0 ? false : true;
+	string GlobalSpeedHackVal = CFG->GetString("gs", string( ));
+	m_GlobalSpeed = GlobalSpeedHackVal.empty() ? 0 : UTIL_ToDouble(GlobalSpeedHackVal);
+	m_GlobalSpeed = m_GlobalSpeed < 0 || m_GlobalSpeed > 64 ? 0 : m_GlobalSpeed;
 	SetConfigs( CFG );
 
 	// load the battle.net connections
@@ -561,7 +568,9 @@ CGHost :: CGHost( CConfig *CFG )
 		BYTEARRAY EXEVersionHash = UTIL_ExtractNumbers( CFG->GetString( Prefix + "custom_exeversionhash", string( ) ), 4 );
 		string PasswordHashType = CFG->GetString( Prefix + "custom_passwordhashtype", string( ) );
 		string PVPGNRealmName = CFG->GetString( Prefix + "custom_pvpgnrealmname", "PvPGN Realm" );
-		uint32_t MaxMessageLength = CFG->GetInt( Prefix + "custom_maxmessagelength", 200 );
+		uint32_t MaxMessageLength = CFG->GetInt( Prefix + "custom_maxmessagelength", 200 );	
+		string ChildrenBotsNames = CFG->GetString(Prefix + "childrenbots", string()); //New
+		string MasterBotsName = CFG->GetString(Prefix + "masterbotname", string());	//New
 
 		if( Server.empty( ) )
 			break;
@@ -601,7 +610,7 @@ CGHost :: CGHost( CConfig *CFG )
 #endif
 		}
 
-		m_BNETs.push_back( new CBNET( this, Server, ServerAlias, BNLSServer, (uint16_t)BNLSPort, (uint32_t)BNLSWardenCookie, CDKeyROC, CDKeyTFT, CountryAbbrev, Country, LocaleID, UserName, UserPassword, FirstChannel, RootAdmin, BNETCommandTrigger[0], HoldFriends, HoldClan, PublicCommands, War3Version, EXEVersion, EXEVersionHash, PasswordHashType, PVPGNRealmName, MaxMessageLength, i ) );
+		m_BNETs.push_back( new CBNET( this, Server, ServerAlias, BNLSServer, (uint16_t)BNLSPort, (uint32_t)BNLSWardenCookie, CDKeyROC, CDKeyTFT, CountryAbbrev, Country, LocaleID, UserName, UserPassword, FirstChannel, RootAdmin, BNETCommandTrigger[0], HoldFriends, HoldClan, PublicCommands, War3Version, EXEVersion, EXEVersionHash, PasswordHashType, PVPGNRealmName, MaxMessageLength, ChildrenBotsNames, MasterBotsName, i ) );
 	}
 
 	if( m_BNETs.empty( ) )
@@ -1322,6 +1331,7 @@ void CGHost :: SetConfigs( CConfig *CFG )
 	m_SyncLimit = CFG->GetInt( "bot_synclimit", 50 );
 	m_VoteKickAllowed = CFG->GetInt( "bot_votekickallowed", 1 ) == 0 ? false : true;
 	m_VoteKickPercentage = CFG->GetInt( "bot_votekickpercentage", 100 );
+	m_DropVoteTime = CFG->GetInt("bot_dropvotetime", 30);
 
 	if( m_VoteKickPercentage > 100 )
 	{
@@ -1646,10 +1656,11 @@ void CGHost :: CreateGame( CMap *map, unsigned char gameState, bool saveGame, st
 		{
 			// note that we send this chat message on all other bnet servers
 
-			if( gameState == GAME_PRIVATE )
-				(*i)->QueueChatCommand( m_Language->CreatingPrivateGame( gameName, ownerName ) );
-			else if( gameState == GAME_PUBLIC )
-				(*i)->QueueChatCommand( m_Language->CreatingPublicGame( gameName, ownerName ) );
+			if( false )
+				if( gameState == GAME_PRIVATE )
+					(*i)->QueueChatCommand( m_Language->CreatingPrivateGame( gameName, ownerName ) );
+				else if( gameState == GAME_PUBLIC )
+					(*i)->QueueChatCommand( m_Language->CreatingPublicGame( gameName, ownerName ) );
 		}
 
 		if( saveGame )
@@ -1660,10 +1671,11 @@ void CGHost :: CreateGame( CMap *map, unsigned char gameState, bool saveGame, st
 
 	if( m_AdminGame )
 	{
-		if( gameState == GAME_PRIVATE )
-			m_AdminGame->SendAllChat( m_Language->CreatingPrivateGame( gameName, ownerName ) );
-		else if( gameState == GAME_PUBLIC )
-			m_AdminGame->SendAllChat( m_Language->CreatingPublicGame( gameName, ownerName ) );
+		if (false)
+			if( gameState == GAME_PRIVATE )
+				m_AdminGame->SendAllChat( m_Language->CreatingPrivateGame( gameName, ownerName ) );
+			else if( gameState == GAME_PUBLIC )
+				m_AdminGame->SendAllChat( m_Language->CreatingPublicGame( gameName, ownerName ) );
 	}
 
 	// if we're creating a private game we don't need to send any game refresh messages so we can rejoin the chat immediately
