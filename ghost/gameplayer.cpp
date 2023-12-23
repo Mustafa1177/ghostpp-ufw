@@ -224,6 +224,7 @@ CGamePlayer::CGamePlayer(CGameProtocol* nProtocol, CBaseGame* nGame, CTCPSocket*
 	m_Lagging = false;
 	m_DropVote = false;
 	m_KickVote = false;
+	m_RmkVote = false;
 	m_Muted = false;
 	m_LeftMessageSent = false;
 	m_GProxy = false;
@@ -275,6 +276,7 @@ CGamePlayer::CGamePlayer(CPotentialPlayer* potential, unsigned char nPID, string
 	m_Lagging = false;
 	m_DropVote = false;
 	m_KickVote = false;
+	m_RmkVote = false;
 	m_Muted = false;
 	m_LeftMessageSent = false;
 	m_GProxy = false;

@@ -121,6 +121,7 @@ private:
 	bool m_Lagging;								// if the player is lagging or not (on the lag screen)
 	bool m_DropVote;							// if the player voted to drop the laggers or not (on the lag screen)
 	bool m_KickVote;							// if the player voted to kick a player or not
+	bool m_RmkVote;								// if the player voted to rmk or not
 	bool m_Muted;								// if the player is muted or not
 	bool m_LeftMessageSent;						// if the playerleave message has been sent or not
 	bool m_GProxy;								// if the player is using GProxy++
@@ -171,6 +172,7 @@ public:
 	bool GetLagging() { return m_Lagging; }
 	bool GetDropVote() { return m_DropVote; }
 	bool GetKickVote() { return m_KickVote; }
+	bool GetRmkVote() { return m_RmkVote; }
 	bool GetMuted() { return m_Muted; }
 	bool GetLeftMessageSent() { return m_LeftMessageSent; }
 	uint32_t GetDotARating() { return ddd? ddd->GetRating() : 1500; }
@@ -204,6 +206,7 @@ public:
 	void SetLagging(bool nLagging) { m_Lagging = nLagging; }
 	void SetDropVote(bool nDropVote) { m_DropVote = nDropVote; }
 	void SetKickVote(bool nKickVote) { m_KickVote = nKickVote; }
+	void SetRmkVote(bool nRmkVote) { m_RmkVote = nRmkVote; }
 	void SetMuted(bool nMuted) { m_Muted = nMuted; }
 	void SetLeftMessageSent(bool nLeftMessageSent) { m_LeftMessageSent = nLeftMessageSent; }
 	void SetDotASummary(CDBDotAPlayerSummaryNew* nDotAPlayerSummary) { ddd = new CDBDotAPlayerSummaryNew(*nDotAPlayerSummary); }

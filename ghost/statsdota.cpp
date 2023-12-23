@@ -40,6 +40,9 @@ CStatsDOTA :: CStatsDOTA( CBaseGame *nGame ) : CStats( nGame ), m_Winner( 0 ), m
 		m_Players[i] = NULL;
 		m_PlayersNames[i] = string();
 	}
+
+	for (unsigned int i = 0; i < 2; ++i)
+		m_TeamsAvgRatings[i] = 1500;
 		
 }
 
@@ -374,10 +377,12 @@ bool CStatsDOTA :: ProcessAction( CIncomingAction *Action )
 	return m_Winner != 0;
 }
 
-void CStatsDOTA :: Save( CGHost *GHost, CGHostDB *DB, uint32_t GameID )
+void CStatsDOTA :: Save( CGHost *GHost, CGHostDB *DB, uint32_t GameID, bool UpdatePlayerStats = false )
 {
 	if( DB->Begin( ) )
 	{
+		CONSOLE_Print("[STATSDOTA: " + m_Game->GetGameName() + "] entered stats saving process");
+
 		// since we only record the end game information it's possible we haven't recorded anything yet if the game didn't end with a tree/throne death
 		// this will happen if all the players leave before properly finishing the game
 		// the dotagame stats are always saved (with winner = 0 if the game didn't properly finish)
@@ -391,6 +396,8 @@ void CStatsDOTA :: Save( CGHost *GHost, CGHostDB *DB, uint32_t GameID )
 
 		// check for invalid colours and duplicates
 		// this can only happen if DotA sends us garbage in the "id" value but we should check anyway
+
+		CONSOLE_Print("[STATSDOTA: " + m_Game->GetGameName() + "] checking for invalid colours and duplicates...");
 
 		for( unsigned int i = 0; i < 12; ++i )
 		{
@@ -419,12 +426,15 @@ void CStatsDOTA :: Save( CGHost *GHost, CGHostDB *DB, uint32_t GameID )
 
 		// save the dotaplayers
 
+		CONSOLE_Print("[STATSDOTA: " + m_Game->GetGameName() + "] reached dotaplayers save step");
+
 		for( unsigned int i = 0; i < 12; ++i )
 		{
-			if( m_Players[i] )
+			if( m_Players[i] && m_Winner != 0 )
 			{
-				CGamePlayer* Player = m_Game->GetPlayerFromColour(m_Players[i]->GetColour());
-				if (!empty(m_PlayersNames[i]))
+				CONSOLE_Print("[STATSDOTANEW!: " + m_Game->GetGameName() + "] processing player [" + UTIL_ToString(i) + "]");
+				//CGamePlayer* Player = m_Game->GetPlayerFromColour(m_Players[i]->GetColour());
+				if (!m_PlayersNames[i].empty() && UpdatePlayerStats)
 				{
 					CONSOLE_Print("[STATSDOTANEW!: " + m_Game->GetGameName() + "] saving [" + m_PlayersNames[i] + "] color " + UTIL_ToString(m_Players[i]->GetNewColour()));
 					//Copy data because it's possible that they will get deleted from memory before getting submitted.

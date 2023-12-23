@@ -159,6 +159,7 @@ CBaseGame :: CBaseGame( CGHost *nGHost, CMap *nMap, CSaveGame *nSaveGame, uint16
 
 	m_MapNumPlayers = m_Map->GetMapNumPlayers();
 	m_MapNumTeams = m_Map->GetMapNumTeams();
+	m_MapFileName = m_Map->GetMapLocalPath(); //warning: this gives the full path
 }
 
 CBaseGame :: ~CBaseGame( )
@@ -455,7 +456,7 @@ bool CBaseGame :: Update( void *fd, void *send_fd )
 
 	// unlock the game
 
-	if( m_Locked && !GetPlayerFromName( m_OwnerName, false ) )
+	if( false && m_Locked && !GetPlayerFromName( m_OwnerName, false ) )
 	{
 		SendAllChat( m_GHost->m_Language->GameUnlocked( ) );
 		m_Locked = false;
@@ -1074,6 +1075,16 @@ bool CBaseGame :: Update( void *fd, void *send_fd )
 	if( m_GameLoaded && !m_Lagging && GetTicks( ) - m_LastActionSentTicks >= m_Latency - m_LastActionLateBy )
 		SendAllActions( );
 
+	// expire the rmk vote
+
+	if (!m_RmkVotePlayer.empty() && GetTime() - m_StartedRmkVoteTime >= 180)
+	{
+		CONSOLE_Print("[GAME: " + m_GameName + "] rmk started by player [" + m_RmkVotePlayer + "] expired");
+		SendAllChat("Rmk vote expired.");
+		m_RmkVotePlayer.clear();
+		m_StartedRmkVoteTime = 0;
+	}
+
 	// expire the votekick
 
 	if( !m_KickVotePlayer.empty( ) && GetTime( ) - m_StartedKickVoteTime >= 60 )
@@ -1661,6 +1672,15 @@ void CBaseGame :: EventPlayerDeleted( CGamePlayer *player )
 
 	m_KickVotePlayer.clear( );
 	m_StartedKickVoteTime = 0;
+
+	// abort the rmkvote
+
+	if (!m_RmkVotePlayer.empty())
+		SendAllChat("Rmk vote canceled.");
+
+	m_RmkVotePlayer.clear();
+	m_StartedRmkVoteTime = 0;
+
 }
 
 void CBaseGame :: EventPlayerDisconnectTimedOut( CGamePlayer *player )
@@ -3271,6 +3291,7 @@ void CBaseGame :: EventPlayerMapSize( CGamePlayer *player, CIncomingMapSize *map
 			}
 			else
 			{
+				SendAllChat(player->GetName() + " doesn't have the map and there is no local copy of the map to send");
 				player->SetDeleteMe( true );
 				player->SetLeftReason( "doesn't have the map and there is no local copy of the map to send" );
 				player->SetLeftCode( PLAYERLEAVE_LOBBY );
@@ -3279,6 +3300,7 @@ void CBaseGame :: EventPlayerMapSize( CGamePlayer *player, CIncomingMapSize *map
 		}
 		else
 		{
+			SendAllChat(player->GetName() + " doesn't have the map and map downloads are disabled");
 			player->SetDeleteMe( true );
 			player->SetLeftReason( "doesn't have the map and map downloads are disabled" );
 			player->SetLeftCode( PLAYERLEAVE_LOBBY );
@@ -4623,7 +4645,7 @@ void CBaseGame :: BalanceSlotsNew( )
 			if( SID < m_Slots.size( ) && m_Slots[SID].GetTeam( ) == i )
 			{
 				TeamHasPlayers = true;
-				double Score = (*j)->GetScore( );
+				double Score = (*j)->GetDotARating( );
 
 				if( Score < -99999.0 )
 					Score = m_Map->GetMapDefaultPlayerScore( );
@@ -5030,8 +5052,8 @@ string CBaseGame::GetAllPlayersNames()
 	{
 		for (BYTEARRAY::iterator i = IDs.begin(); i != IDs.end(); i++)
 		{
-			CGamePlayer* plyr = m_GHost->m_CurrentGame->GetPlayerFromPID(*i);
-			if(plyr->GetLeftCode() == 13 || plyr->GetLeftCode() == 0)
+			CGamePlayer* plyr = GetPlayerFromPID(*i);
+			if(plyr && (plyr->GetLeftCode() == 13 || plyr->GetLeftCode() == 0))
 				Names += plyr->GetName() + " ";
 		}
 		if(Names.size())

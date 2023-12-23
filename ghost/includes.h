@@ -54,6 +54,8 @@ typedef pair<unsigned char,string> PIDPlayer;
 
 uint32_t GetTime( );		// seconds
 uint32_t GetTicks( );		// milliseconds
+uint32_t GetTime( double speed );		// seconds
+uint32_t GetTicks( double speed );		// milliseconds
 
 #ifdef WIN32
  #define MILLISLEEP( x ) Sleep( x )

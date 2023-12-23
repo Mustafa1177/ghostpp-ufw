@@ -78,6 +78,7 @@ protected:
 	string m_AnnounceMessage;						// a message to be sent every m_AnnounceInterval seconds
 	string m_StatString;							// the stat string when the game started (used when saving replays)
 	string m_KickVotePlayer;						// the player to be kicked with the currently running kick vote
+	string m_RmkVotePlayer;							// the player who started the rmk vote
 	string m_HCLCommandString;						// the "HostBot Command Library" command string, used to pass a limited amount of data to specially designed maps
 	uint32_t m_RandomSeed;							// the random seed sent to the Warcraft III clients
 	uint32_t m_HostCounter;							// a unique game number
@@ -107,6 +108,7 @@ protected:
 	uint32_t m_LastLagScreenTime;					// GetTime when the last lag screen was active (continuously updated)
 	uint32_t m_LastReservedSeen;					// GetTime when the last reserved player was seen in the lobby
 	uint32_t m_StartedKickVoteTime;					// GetTime when the kick vote was started
+	uint32_t m_StartedRmkVoteTime;					// GetTime when the rmk vote was started
 	uint32_t m_GameOverTime;						// GetTime when the game was over
 	uint32_t m_LastPlayerLeaveTicks;				// GetTicks when the most recent player left the game
 	uint32_t m_OwnerLeaveTime;						// New: GetTime when game owner left, used for auto unhost	
@@ -145,6 +147,7 @@ public:
 	boost::mutex m_SpoofAddMutex;
 	vector<string> m_AutoBanTemp;
 	//New
+	string m_MapFileName;
 	uint32_t m_MapNumPlayers;
 	uint32_t m_MapNumTeams;
 	uint32_t m_MapDefaultPlayerScore;

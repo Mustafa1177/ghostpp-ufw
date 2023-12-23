@@ -481,7 +481,7 @@ bool CBNET :: Update( void *fd, void *send_fd )
 					{
 						if (!(*cg)->m_GameStarted) //filter out ongoing games
 						{
-							string reply = "#" + UTIL_ToString(i->second->GetQueryOffset() + num) + " [" + (*cg)->m_GameName + " : " + (*cg)->m_OwnerName + "] [" + UTIL_ToString((*cg)->m_OccupiedSlots) + "/" + UTIL_ToString((*cg)->m_MaxSlots) + "] " + (!(*cg)->m_Names.empty() ? (*cg)->m_Names : "No Players");
+							string reply = "#" + UTIL_ToString(i->second->GetQueryOffset() + num) + " [" + (*cg)->m_GameName + " : " + (*cg)->m_OwnerName + "] [" + UTIL_ToString((*cg)->m_OccupiedSlots) + "/" + UTIL_ToString((*cg)->m_MaxSlots) + "] " + (!(*cg)->m_Names.empty() ? (*cg)->m_Names : "This lobby is empty.");
 							Replies.push_back(reply);
 							num++;
 						}
@@ -507,9 +507,9 @@ bool CBNET :: Update( void *fd, void *send_fd )
 				else
 				{
 					if(i->second->GetQueryLimit() == 1)
-						Replies.push_back(i->second->AreLobbiesIncluded() ? "Lobby #" + UTIL_ToString(i->second->GetQueryOffset() + 1) + " does not exist" : "Game #" + UTIL_ToString(i->second->GetQueryOffset() + 1) + " does not exist");
+						Replies.push_back(i->second->AreLobbiesIncluded() ? "Lobby#" + UTIL_ToString(i->second->GetQueryOffset() + 1) + " does not exist" : "Game#" + UTIL_ToString(i->second->GetQueryOffset() + 1) + " does not exist");
 					else
-						Replies.push_back(i->second->AreLobbiesIncluded() ? "There are no open lobbies" : "There is not any ongoing game");
+						Replies.push_back(i->second->AreLobbiesIncluded() ? "There are no open lobbies" : "There are no ongoing game");
 				}
 			}
 			else
@@ -559,10 +559,18 @@ bool CBNET :: Update( void *fd, void *send_fd )
 		if (m_QueuedLobbies.size() > 0 && GetTime() - m_LastChildrenBotsFreeCheck >= 2)
 		{
 			m_LastChildrenBotsFreeCheck = GetTime();
-			if (m_NextChildBotIndex >= m_ChildrenBotsNames.size())
-				m_NextChildBotIndex = 0;
-			QueueChatCommand("!freecheck", m_ChildrenBotsNames[m_NextChildBotIndex], true);
-			m_NextChildBotIndex +=1;
+			if (m_ChildrenBotsNames.size())
+			{
+				if (m_NextChildBotIndex >= m_ChildrenBotsNames.size())
+					m_NextChildBotIndex = 0;
+				QueueChatCommand("!freecheck", m_ChildrenBotsNames[m_NextChildBotIndex], true);
+				m_NextChildBotIndex += 1;
+			}
+			else
+			{
+				//no bot!
+			}
+		
 		}
 	}
 
@@ -1610,20 +1618,6 @@ void CBNET :: BotCommand( string Message, string User, bool Whisper, bool ForceR
 		}
 
 		//
-		// !CHECKBAN
-		//
-
-		else if( Command == "checkban" && !Payload.empty( ) )
-		{
-			CDBBan *Ban = IsBannedName( Payload );
-
-			if( Ban )
-				QueueChatCommand( m_GHost->m_Language->UserWasBannedOnByBecause( m_Server, Payload, Ban->GetDate( ), Ban->GetAdmin( ), Ban->GetReason( ) ), User, Whisper );
-			else
-				QueueChatCommand( m_GHost->m_Language->UserIsNotBanned( m_Server, Payload ), User, Whisper );
-		}
-
-		//
 		// !COUNTADMINS
 		//
 
@@ -2206,10 +2200,25 @@ void CBNET :: BotCommand( string Message, string User, bool Whisper, bool ForceR
 	{
 		
 		//
+		// !CHECKBAN
+		//
+
+		if (Command == "checkban")
+		{
+			string CheckUser = !Payload.empty() ? Payload : User;
+			CDBBan* Ban = IsBannedName(Payload);
+
+			if (Ban)
+				QueueChatCommand(m_GHost->m_Language->UserWasBannedOnByBecause(m_Server, Payload, Ban->GetDate(), Ban->GetAdmin(), Ban->GetReason()), User, Whisper);
+			else
+				QueueChatCommand(m_GHost->m_Language->UserIsNotBanned(m_Server, Payload), User, Whisper);
+		}
+
+		//
 		// !FREECHECK
 		//
 
-		if (Command == "freecheck" && Whisper)
+		else if (Command == "freecheck" && Whisper)
 		{
 			string UserLower = User;
 			transform(UserLower.begin(), UserLower.end(), UserLower.begin(), (int(*)(int))tolower);
